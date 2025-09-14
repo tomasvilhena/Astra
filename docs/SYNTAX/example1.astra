@@ -1,10 +1,4 @@
-mod frontend;
-use frontend::lexer::{Lexer, Token, TokenKind};
-
-fn main()
-{
-  let source = r#"
-        entry main;
+entry main;
 // ==============================
 // Astra Programming Language Syntax Demo
 // ==============================
@@ -257,14 +251,3 @@ fn operators_demo(): void
 
     println("Done.");
   }
-
-    "#;
-
-  let mut lexer = Lexer::new(source);
-  let tokens = lexer.tokenize();
-
-  for token in tokens
-  {
-    println!("{:?} => {}", token.token_kind, token.lexed_value);
-  }
-}
