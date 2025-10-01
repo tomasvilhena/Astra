@@ -1,5 +1,3 @@
-
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind
 {
@@ -93,6 +91,8 @@ pub enum TokenKind
   EndOfFile,
 }
 
+
+#[derive(Debug, Clone)]
 pub struct Token
 {
   pub token_kind: TokenKind,
@@ -102,7 +102,7 @@ pub struct Token
 }
 
 
-
+#[derive(Debug, Clone)]
 pub struct Lexer
 {
   pub source_code: Vec<char>,
@@ -124,7 +124,7 @@ impl Lexer
     }
   }
 
-  fn peek(&self) -> Option<char>
+  pub fn peek(&self) -> Option<char>
   {
     if self.position >= self.source_code.len()
     {
@@ -135,7 +135,7 @@ impl Lexer
     }
   }
 
-  fn advance(&mut self) -> Option<char>
+  pub fn advance(&mut self) -> Option<char>
   {
     if self.position >= self.source_code.len()
     {
@@ -157,7 +157,7 @@ impl Lexer
     Some(character)
   }
 
-  fn skip_whitespace_and_comments(&mut self)
+  pub fn skip_whitespace_and_comments(&mut self)
   {
     while let Some(character) = self.peek()
     {
@@ -220,7 +220,7 @@ impl Lexer
     }
   }
 
-  fn next_token(&mut self) -> Option<Token>
+  pub fn next_token(&mut self) -> Option<Token>
   {
     self.skip_whitespace_and_comments();
 
@@ -252,6 +252,7 @@ impl Lexer
       let kind = match ident.as_str()
       {
         "entry" => TokenKind::Entry,
+        "include" => TokenKind::Include,
         "fn" => TokenKind::Function,
         "return" => TokenKind::Return,
         "let" => TokenKind::Let,
