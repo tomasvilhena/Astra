@@ -1,5 +1,6 @@
-mod frontend;
-use frontend::lexer::{Lexer, Token, TokenKind};
+mod frontend; // or `pub mod frontend;` in lib.rs
+use frontend::parser::Parser;
+use frontend::lexer::Lexer;
 
 fn main()
 {
@@ -267,4 +268,14 @@ fn operators_demo(): void
   {
     println!("{:?} => {}", token.token_kind, token.lexed_value);
   }
+
+  let source = "x <= 3";
+  let mut lexer = Lexer::new(source);
+  let tokens = lexer.tokenize();
+
+  let mut parser = Parser::new(tokens);
+  let ast = parser.parse_binary();
+
+  println!("{:?}", ast);
+
 }
