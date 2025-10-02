@@ -274,7 +274,7 @@ fn operators_demo(): void
   let tokens = lexer.tokenize();
 
   let mut parser = Parser::new(tokens);
-  let ast = parser.parse_binary();
+  let ast = parser.parse_primary();
 
   println!("{:?}", ast);
 
