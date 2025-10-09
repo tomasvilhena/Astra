@@ -264,17 +264,17 @@ fn operators_demo(): void
   let mut lexer = Lexer::new(source);
   let tokens = lexer.tokenize();
 
-  for token in tokens
-  {
-    println!("{:?} => {}", token.token_kind, token.lexed_value);
-  }
+  // for token in tokens
+  // {
+  //   println!("{:?} => {}", token.token_kind, token.lexed_value);
+  // }
 
-  let source = "x <= 3";
+  let source = "(2 + 3) * 6";
   let mut lexer = Lexer::new(source);
   let tokens = lexer.tokenize();
 
   let mut parser = Parser::new(tokens);
-  let ast = parser.parse_primary();
+  let ast = parser.parse_expr(0);
 
   println!("{:?}", ast);
 
