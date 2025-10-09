@@ -215,6 +215,18 @@ impl Parser
         }
       }
 
+      TokenKind::Plus | TokenKind::Minus | TokenKind::KeywordNot | TokenKind::Not =>
+      {
+        let op = Self::token_to_unary_op(&token.token_kind).expect("invalid unary operator");
+        self.advance();
+
+        let right_expr = self.parse_expr(15)?;
+        Some(Expr::Unary {
+          op,
+          expr: Box::new(right_expr),
+        })
+      }
+
       _ => {
         panic!("Unexpected token {:?} at line {}, col {}", token.token_kind, token.line, token.col);
       }
