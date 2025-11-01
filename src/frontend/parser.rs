@@ -1,5 +1,7 @@
+use core::panic;
+
 use super::lexer::{Token, TokenKind, Lexer};
-use super::ast::{Expr, BinaryOperator, UnaryOperator};
+use super::ast::{Expr, BinaryOperator, UnaryOperator, Stmt};
 
 pub struct Parser
 {
@@ -215,10 +217,9 @@ impl Parser
         }
       }
 
-      TokenKind::Plus | TokenKind::Minus | TokenKind::KeywordNot | TokenKind::Not =>
+      TokenKind::Minus | TokenKind::KeywordNot | TokenKind::Not =>
       {
         let op = Self::token_to_unary_op(&token.token_kind).expect("invalid unary operator");
-        self.advance();
 
         let right_expr = self.parse_expr(15)?;
         Some(Expr::Unary {
@@ -229,6 +230,110 @@ impl Parser
 
       _ => {
         panic!("Unexpected token {:?} at line {}, col {}", token.token_kind, token.line, token.col);
+      }
+    }
+  }
+
+  fn parse_let_stmt(&mut self) -> Option<Stmt>
+  {
+    self.advance();
+
+    let identifier_token = self.peek()?;
+
+    let name = match identifier_token.token_kind {
+      TokenKind::Identifier => identifier_token.lexed_value.to_string(),
+      _ => panic!("Invalide variable identifier after 'let'"),
+    };
+
+    let colon_token = self.peek()?;
+    if colon_token.token_kind != TokenKind::Colon
+    {
+      panic!("Invalid Variable type declaration");
+    }
+
+    self.advance();
+
+    let token_type = self.peek()?;
+    let var_type = match token_type.token_kind
+    {
+      TokenKind::IntType
+        | TokenKind::FloatType
+        | TokenKind::StringType
+        | TokenKind::BoolType
+        | TokenKind::VoidType
+        | TokenKind::ArrayType => token_type.lexed_value.clone(),
+      _ => panic!("Expected a valid type after ':' (int, float, bool, string, etc.), got {:?}", token_type.token_kind),
+    };
+
+    let mut value: Option<Expr> = None;
+    if let Some(next) = self.peek() 
+    {
+      if next.token_kind == TokenKind::Assign 
+      {
+        self.advance();
+        value = Some(self.parse_expr(0)?);
+      }
+    }
+
+    let semi = self.peek()?;
+    if semi.token_kind != TokenKind::Semicolon
+    {
+      panic!("Expected ';' after let statement");
+    } 
+
+    self.advance();
+
+    Some(Stmt::Let 
+    { 
+      name,
+      var_type: Some(var_type),
+      value, 
+    })
+
+  }
+
+
+  fn parse_print_stmt(&mut self) -> Option<Stmt>
+  {
+    
+  }
+
+  fn parse_function_stmt(&mut self) -> Option<Stmt>
+  {
+    self.advance();
+
+    let name = self.advance()?.lexed_value;
+
+    //TODO: parse parameters, return type and body
+    Some(Stmt::Function 
+    { 
+      name, 
+      params: vec![], 
+      return_type: None, 
+      body: vec![], 
+    })
+  }
+
+  fn parse_stmt(&mut self) -> Option<Stmt>
+  {
+    let token = self.peek()?;
+
+    match token.token_kind 
+    {
+      TokenKind::Let => self.parse_let_stmt(),
+      TokenKind::Print => self.parse_print_stmt(),
+      _ =>
+      {
+        let expr = self.parse_expr(0)?;
+        let semi = self.peek()?;
+
+        if semi.token_kind != TokenKind::Semicolon
+        {
+          panic!("Expected ';' after statement");
+        }
+
+        self.advance();
+        Some(Stmt::ExprStmt(expr))
       }
     }
   }

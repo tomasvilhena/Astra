@@ -269,7 +269,7 @@ fn operators_demo(): void
   //   println!("{:?} => {}", token.token_kind, token.lexed_value);
   // }
 
-  let source = "(2 + 3) * 6";
+  let source = "not !true";
   let mut lexer = Lexer::new(source);
   let tokens = lexer.tokenize();
 
