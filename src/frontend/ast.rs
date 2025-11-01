@@ -66,3 +66,27 @@ pub enum UnaryOperator
   KeywordNot,     // NOT
 }
 
+#[derive(Debug, Clone)]
+pub enum Stmt //statments 
+{
+  Let {
+    name: String,
+    var_type: Option<String>, 
+    value: Option<Expr>
+  },
+
+  Function {
+    name: String,
+    params: Vec<(String, String)>,
+    return_type: Option<String>,
+    body: Vec<Stmt>,
+  },
+
+  ExprStmt(Expr),
+
+  Print {
+    text_string: Option<String>,
+    
+  },
+}
+
