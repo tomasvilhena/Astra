@@ -16,7 +16,11 @@ pub enum Expr
       op: BinaryOperator,
       right: Box<Expr>,
     },
-    // add more later
+    
+    Call {
+      callee: Box<Expr>,
+      args: Vec<Expr>,
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -54,8 +58,7 @@ pub enum BinaryOperator
 
   // Ranges
   RangeExclusive, // ..
-  RangeInclusive, // ..=      let names: array<int> = 1..5 [1, 2, 3, 4]
-
+  RangeInclusive, // ..=
 }
 
 #[derive(Debug, Clone)]
@@ -86,7 +89,7 @@ pub enum Stmt //statments
 
   Print {
     text_string: Option<String>,
-    
+    args: Vec<Expr>,
   },
 }
 
