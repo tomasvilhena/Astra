@@ -204,6 +204,11 @@ impl Parser
         Some(Expr::Bool(value))
       }
 
+      TokenKind::StringLiteral => {
+        let value: String = token.lexed_value.parse::<String>().expect("Invalid String Literal");
+        Some(Expr::String(value))
+      }
+
       TokenKind::Identifier => {
         Some(Expr::Identifier(token.lexed_value))
       }
@@ -245,6 +250,8 @@ impl Parser
       _ => panic!("Invalide variable identifier after 'let'"),
     };
 
+    self.advance();
+
     let colon_token = self.peek()?;
     if colon_token.token_kind != TokenKind::Colon
     {
@@ -264,6 +271,8 @@ impl Parser
         | TokenKind::ArrayType => token_type.lexed_value.clone(),
       _ => panic!("Expected a valid type after ':' (int, float, bool, string, etc.), got {:?}", token_type.token_kind),
     };
+
+    self.advance();
 
     let mut value: Option<Expr> = None;
     if let Some(next) = self.peek() 
@@ -292,17 +301,95 @@ impl Parser
 
   }
 
+  pub fn produce_ast(&mut self) -> Vec<Stmt>
+  {
+    let mut ast: Vec<Stmt> = Vec::new();
+
+    while self.peek().is_some() && self.peek().unwrap().token_kind != TokenKind::EndOfFile 
+    {
+      if let Some(stmt) = self.parse_stmt()
+      {
+        ast.push(stmt);
+      }
+    }
+
+    ast
+  }
+
 
   fn parse_print_stmt(&mut self) -> Option<Stmt>
   {
+
+    let new_line = self.peek()?.token_kind == TokenKind::Println;
+
+    self.advance();
+
+    if self.peek()?.token_kind != TokenKind::LeftParen 
+    {
+      panic!("Expected '(' after print statement");
+    }
+
+    self.advance();
+
+    let mut text_string: Option<String> = None;
+    let mut args: Vec<Expr> = Vec::new();
+
+    if self.peek()?.token_kind == TokenKind::StringLiteral 
+    {
+      text_string = Some(self.advance()?.lexed_value.clone());
+    }
+
+    match self.peek()?.token_kind 
+    {
+      TokenKind::RightParen => {}, 
+
+      TokenKind::Comma => 
+      {
+        self.advance();
+        
+        while self.peek()?.token_kind != TokenKind::RightParen 
+        {
+          args.push(self.parse_expr(0)?);
+
+          if self.peek()?.token_kind == TokenKind::Comma 
+          {
+            self.advance();
+          }
+        }
+      },
+
+      _ => 
+      {
+        panic!("Expected ',' or ')' after print statement");
+      }
+    }
+
+    if self.peek()?.token_kind != TokenKind::RightParen
+    {
+      panic!("Expected ')' after print statement");
+    }
     
+    self.advance();
+    if self.peek()?.token_kind != TokenKind::Semicolon 
+    {
+      panic!("Expected ';' after print statement");
+    }
+
+    self.advance();
+
+    Some(Stmt::Print 
+    {
+      text_string,
+      args,
+      new_line,
+    })
   }
 
   fn parse_function_stmt(&mut self) -> Option<Stmt>
   {
     self.advance();
 
-    let name = self.advance()?.lexed_value;
+    let name: String = self.advance()?.lexed_value;
 
     //TODO: parse parameters, return type and body
     Some(Stmt::Function 
@@ -321,7 +408,7 @@ impl Parser
     match token.token_kind 
     {
       TokenKind::Let => self.parse_let_stmt(),
-      TokenKind::Print => self.parse_print_stmt(),
+      TokenKind::Print | TokenKind::Println => self.parse_print_stmt(),
       _ =>
       {
         let expr = self.parse_expr(0)?;
@@ -337,6 +424,5 @@ impl Parser
       }
     }
   }
-
 }
 
