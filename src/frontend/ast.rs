@@ -5,6 +5,7 @@ pub enum Expr
     Float(f64),
     Bool(bool),
     Identifier(String),
+    String(String),
 
     Unary {
       op: UnaryOperator,
@@ -90,6 +91,7 @@ pub enum Stmt //statments
   Print {
     text_string: Option<String>,
     args: Vec<Expr>,
+    new_line: bool,
   },
 }
 

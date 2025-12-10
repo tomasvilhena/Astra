@@ -261,20 +261,38 @@ fn operators_demo(): void
 
     "#;
 
-  let mut lexer = Lexer::new(source);
-  let tokens = lexer.tokenize();
+  //let mut lexer = Lexer::new(source);
+  //let tokens = lexer.tokenize();
 
   // for token in tokens
   // {
   //   println!("{:?} => {}", token.token_kind, token.lexed_value);
   // }
 
-  let source = "not !true";
+  let source = r#"
+    // 1. Test Variables (Let Stmt)
+    let a: int = 10;
+    let b: int = 5;
+    let name: string = "Astra";
+    // 2. Test Printing (Print Stmt) with arguments
+    print("Testing parser for: ");
+    println("{}", name);
+    // 3. Test Expressions & Math
+    let sum: int = a + b * 2; 
+    println("10 + 5 * 2 = {}", sum);
+    // 4. Test Logic & Boolean
+    let check: bool = sum > 15;
+    println("Is sum > 15? {}", check);
+    // 5. Test Expressions as Statements (Assignments)
+    // (We treat assignment as an expression statement in this language)
+    a = 99; 
+    println("New a: {}", a);
+  "#;
   let mut lexer = Lexer::new(source);
   let tokens = lexer.tokenize();
 
   let mut parser = Parser::new(tokens);
-  let ast = parser.parse_expr(0);
+  let ast = parser.produce_ast();
 
   println!("{:?}", ast);
 
