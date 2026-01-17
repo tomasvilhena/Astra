@@ -93,5 +93,11 @@ pub enum Stmt //statments
     args: Vec<Expr>,
     new_line: bool,
   },
+
+  If {
+    condition: Expr,
+    then_body: Vec<Stmt>, 
+    else_body: Option<Vec<Stmt>>, 
+  }
 }
 

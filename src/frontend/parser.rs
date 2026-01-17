@@ -391,12 +391,85 @@ impl Parser
 
     let name: String = self.advance()?.lexed_value;
 
+    let mut params: Vec<(String, String)> = Vec::new();
+
+    if self.peek()?.token_kind != TokenKind::LeftParen
+    {
+      panic!("Expected '(' after function name"); 
+    }
+
+    self.advance();
+
+    while self.peek()?.token_kind != TokenKind::RightParen 
+    {
+      if self.peek()?.token_kind != TokenKind::Identifier 
+      {
+        panic!("Expected identifier after '('");
+      }
+
+      let param_name = self.advance()?.lexed_value;
+
+      if self.peek()?.token_kind != TokenKind::Colon 
+      {
+        panic!("Expected ':' after parameter name");
+      }
+
+      self.advance();
+
+      let token_type = self.advance()?;
+      let param_type = match token_type.token_kind
+      {
+        TokenKind::IntType
+        | TokenKind::FloatType
+        | TokenKind::StringType
+        | TokenKind::BoolType
+        | TokenKind::VoidType
+        | TokenKind::ArrayType => token_type.lexed_value.clone(),
+        _ => panic!("Expected a valid type after ':' (int, float, bool, string, etc.), got {:?}", token_type.token_kind),
+      };
+
+      params.push((param_name, param_type));
+    }
+
+    if self.peek()?.token_kind != TokenKind::RightParen
+    {
+      panic!("Expected ')' after parameters");
+    }
+
+    self.advance();
+
+    if self.peek()?.token_kind != TokenKind::Colon 
+    {
+      panic!("Expected ':' to declare function return type");
+    }
+
+    self.advance();
+
+    let return_type = self.advance()?;
+    let return_type = match return_type.token_kind
+    {
+      TokenKind::IntType
+      | TokenKind::FloatType
+      | TokenKind::StringType
+      | TokenKind::BoolType
+      | TokenKind::VoidType
+      | TokenKind::ArrayType => return_type.lexed_value.clone(),
+      _ => panic!("Expected a valid type after ':' (int, float, bool, string, etc.), got {:?}", return_type.token_kind),
+    };
+
+    if self.peek()?.token_kind != TokenKind::LeftBrace 
+    {
+      panic!("Expected '{{' after function return type");
+    }
+
+    self.advance();
+
     //TODO: parse parameters, return type and body
     Some(Stmt::Function 
     { 
       name, 
-      params: vec![], 
-      return_type: None, 
+      params, 
+      return_type: Some(return_type), 
       body: vec![], 
     })
   }
@@ -423,6 +496,89 @@ impl Parser
         Some(Stmt::ExprStmt(expr))
       }
     }
+  }
+
+  fn parse_block(&mut self) -> Option<Vec<Stmt>> 
+  {
+    let mut statements = Vec::new();
+
+    while self.peek()?.token_kind != TokenKind::RightBrace 
+    {
+      if let Some(stmt) = self.parse_stmt() 
+      {
+        statements.push(stmt);
+      }
+    } 
+
+    self.advance();
+    Some(statements)
+  }
+
+  fn parse_if_stmt(&mut self) -> Option<Stmt>
+  {
+    self.advance();
+
+    if self.peek()?.token_kind != TokenKind::LeftParen 
+    {
+      panic!("Expected '(' after 'if'");
+    }
+
+    self.advance();
+
+    let condition = self.parse_expr(0)?;
+
+    if self.peek()?.token_kind != TokenKind::RightParen 
+    {
+      panic!("Expected ')' after if condition");
+    }
+
+    self.advance();
+
+    if self.peek()?.token_kind != TokenKind::LeftBrace
+    {
+      panic!("Expected '{{' after if condition");
+    }
+
+    self.advance();
+
+    let then_body = self.parse_block()?;
+
+    let else_exists = match self.peek() 
+    {
+      Some(token) => token.token_kind == TokenKind::Else,
+      None => false,
+    };
+
+    let else_body = if else_exists 
+    {
+      self.advance();
+
+      if self.peek()?.token_kind == TokenKind::If 
+      {
+        Some(vec![self.parse_if_stmt()?])
+      } else 
+      {
+        if self.peek()?.token_kind != TokenKind::LeftBrace
+        {
+        panic!("Expected '{{' after 'else'");
+        }
+
+        self.advance();
+        Some(self.parse_block()?)
+      }
+      
+    } else
+    {
+      None
+    };
+
+    Some(Stmt::If 
+    { 
+      condition,
+      then_body, 
+      else_body, 
+    })
+
   }
 }
 
