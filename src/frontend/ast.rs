@@ -98,6 +98,10 @@ pub enum Stmt //statments
     condition: Expr,
     then_body: Vec<Stmt>, 
     else_body: Option<Vec<Stmt>>, 
-  }
+  },
+
+  Return {
+    value: Option<Expr>,
+  },
 }
 

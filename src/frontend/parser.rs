@@ -1,6 +1,6 @@
 use core::panic;
 
-use super::lexer::{Token, TokenKind, Lexer};
+use super::lexer::{Token, TokenKind};
 use super::ast::{Expr, BinaryOperator, UnaryOperator, Stmt};
 
 pub struct Parser
@@ -402,6 +402,14 @@ impl Parser
 
     while self.peek()?.token_kind != TokenKind::RightParen 
     {
+      if !params.is_empty() && self.peek()?.token_kind != TokenKind::Comma  
+      {
+        panic!("Expected a comma character (',') to separate the parameters");
+      } else if !params.is_empty()
+      {
+        self.advance();
+      }
+
       if self.peek()?.token_kind != TokenKind::Identifier 
       {
         panic!("Expected identifier after '('");
@@ -464,13 +472,14 @@ impl Parser
 
     self.advance();
 
-    //TODO: parse parameters, return type and body
+    let body = self.parse_block();
+
     Some(Stmt::Function 
     { 
       name, 
       params, 
       return_type: Some(return_type), 
-      body: vec![], 
+      body: body?, 
     })
   }
 
@@ -482,6 +491,9 @@ impl Parser
     {
       TokenKind::Let => self.parse_let_stmt(),
       TokenKind::Print | TokenKind::Println => self.parse_print_stmt(),
+      TokenKind::Function => self.parse_function_stmt(),
+      TokenKind::If => self.parse_if_stmt(),
+      TokenKind::Return => self.parse_return_stmt(),
       _ =>
       {
         let expr = self.parse_expr(0)?;
@@ -512,6 +524,35 @@ impl Parser
 
     self.advance();
     Some(statements)
+  }
+
+  fn parse_return_stmt(&mut self) -> Option<Stmt>
+  {
+    self.advance();
+
+    if self.peek()?.token_kind == TokenKind::Semicolon 
+    {
+      self.advance(); 
+
+      return Some(Stmt::Return 
+      { 
+        value: None, 
+      });
+    }
+
+    let value = self.parse_expr(0);
+
+    if self.peek()?.token_kind != TokenKind::Semicolon 
+    {
+      panic!("Expected a semicolon at the end of the stmt");
+    }
+
+    self.advance();
+
+    Some(Stmt::Return 
+    { 
+      value 
+    })
   }
 
   fn parse_if_stmt(&mut self) -> Option<Stmt>
