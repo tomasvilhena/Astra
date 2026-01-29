@@ -257,6 +257,8 @@ fn operators_demo(): void
     clear(); // clears the screen
 
     println("Done.");
+    
+    
   }
 
     "#;
@@ -271,22 +273,43 @@ fn operators_demo(): void
 
   let source = r#"
     // 1. Test Variables (Let Stmt)
+
     let a: int = 10;
     let b: int = 5;
     let name: string = "Astra";
+
     // 2. Test Printing (Print Stmt) with arguments
+
     print("Testing parser for: ");
     println("{}", name);
+
     // 3. Test Expressions & Math
+
     let sum: int = a + b * 2; 
     println("10 + 5 * 2 = {}", sum);
+
     // 4. Test Logic & Boolean
+
     let check: bool = sum > 15;
     println("Is sum > 15? {}", check);
+
     // 5. Test Expressions as Statements (Assignments)
     // (We treat assignment as an expression statement in this language)
+
     a = 99; 
     println("New a: {}", a);
+
+    if (a == 0) {
+      print("Yay");
+    } else if (a == 99) 
+    {
+      print("yahoooo");
+    }
+
+    let a: string = "5";
+
+    fn loops_demo(): void
+{}
   "#;
   let mut lexer = Lexer::new(source);
   let tokens = lexer.tokenize();
