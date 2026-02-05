@@ -2,6 +2,8 @@ use core::panic;
 
 use super::lexer::{Token, TokenKind};
 use super::ast::{Expr, BinaryOperator, UnaryOperator, Stmt};
+use miette::{Diagnostic, SourceSpan};
+use thiserror::Error;
 
 pub struct Parser
 {
@@ -9,8 +11,87 @@ pub struct Parser
   position: usize,
 }
 
+#[derive(Error, Diagnostic, Debug)]
+pub enum ParseError 
+{
+  #[error("Unexpected token: expected {expected:?}, found {found:?}")]
+  #[diagnostic(code(parser::unexpected_token))]
+  UnexpectedToken 
+  { 
+    expected: Vec<TokenKind>, 
+    found: TokenKind,
+    #[label("here")] 
+    span: SourceSpan 
+  },
+
+  #[error("Missing token: expected {expected:?}")]
+  #[diagnostic(code(parser::missing_token))]
+  MissingToken 
+  { 
+    expected: TokenKind,
+    #[label("Expected here")]
+    span: SourceSpan 
+  },
+  
+  #[error("Invalid literal: {kind:?}")]
+  #[diagnostic(code(parser::invalid_literal))]
+  InvalidLiteral 
+  { 
+    kind: TokenKind, 
+    #[label("This literal is invalid")]
+    span: SourceSpan 
+  },
+
+  #[error("Unexpected end of file: expected {expected:?}")]
+  #[diagnostic(code(parser::unexpected_eof))]
+  UnexpectedEof 
+  { 
+    expected: &'static str,
+     #[label("End of file here")]
+    span: SourceSpan 
+  },
+}
+
+type ParseResult<T> = Result<T, ParseError>;
+
 impl Parser
 {
+  fn current(&self) -> Option<&Token> 
+  {
+    self.tokens.get(self.position)
+  }
+
+  fn eof_span(&self) -> SourceSpan 
+  {
+    match self.tokens.last() 
+    {
+      Some(token) => token.span,
+      None => SourceSpan::new(0.into(), 0.into()),
+    }
+  }
+
+  fn current_span_or_eof(&self) -> SourceSpan 
+  {
+    match self.current() 
+    {
+      Some(token) => token.span,
+      None => self.eof_span(),
+    }
+  }
+
+  fn unexpected_eof<T>(expected: &'static str) -> ParseResult<T> 
+  {
+    Err(ParseError::UnexpectedEof 
+    { 
+      expected, 
+      span: self.current_span_or_eof() 
+    })
+  }
+
+  fn advanece_or_eof(&mut self, &'static str) -> ParseResult<Token>
+  {
+    
+  }
 
   fn token_to_binary_op(token: &TokenKind) -> Option<BinaryOperator>
   {
@@ -62,6 +143,7 @@ impl Parser
     }
   }
 
+ 
   pub fn new(tokens: Vec<Token>) -> Self
   {
     Self {tokens, position: 0}
@@ -84,14 +166,14 @@ impl Parser
     token
   }
 
-  pub fn is_end_of_file(&self) -> bool
-  {
-    match self.peek()
-    {
-      Some(token) => token.token_kind == TokenKind::EndOfFile,
-      None => true,
-    }
-  }
+  // pub fn is_end_of_file(&self) -> bool
+  // {
+  //   match self.peek()
+  //   {
+  //     Some(token) => token.token_kind == TokenKind::EndOfFile,
+  //     None => true,
+  //   }
+  // }
 
   pub fn get_binding_power(op: &TokenKind) -> Option<(u8, u8)>
   {
@@ -144,7 +226,7 @@ impl Parser
   }
 
 
-  pub fn parse_expr(&mut self, min_binding_power: u8) -> Option<Expr>
+  pub fn parse_expr(&mut self, min_binding_power: u8) -> ParseResult<Expr>
   {
     let mut left = self.parse_primary()?;
 
@@ -183,7 +265,7 @@ impl Parser
     Some(left)
   }
 
-  pub fn parse_primary(&mut self) -> Option<Expr>
+  pub fn parse_primary(&mut self) -> ParseResult<Expr>
   {
     let token = self.advance()?;
 
@@ -239,7 +321,7 @@ impl Parser
     }
   }
 
-  fn parse_let_stmt(&mut self) -> Option<Stmt>
+  fn parse_let_stmt(&mut self) -> ParseResult<Stmt>
   {
     self.advance();
 
@@ -301,7 +383,7 @@ impl Parser
 
   }
 
-  pub fn produce_ast(&mut self) -> Vec<Stmt>
+  pub fn produce_ast(&mut self) -> ParseResult<Vec<Stmt>>
   {
     let mut ast: Vec<Stmt> = Vec::new();
 
@@ -317,7 +399,7 @@ impl Parser
   }
 
 
-  fn parse_print_stmt(&mut self) -> Option<Stmt>
+  fn parse_print_stmt(&mut self) -> ParseResult<Stmt>
   {
 
     let new_line = self.peek()?.token_kind == TokenKind::Println;
@@ -385,7 +467,7 @@ impl Parser
     })
   }
 
-  fn parse_function_stmt(&mut self) -> Option<Stmt>
+  fn parse_function_stmt(&mut self) -> ParseResult<Stmt>
   {
     self.advance();
 
@@ -483,7 +565,7 @@ impl Parser
     })
   }
 
-  fn parse_stmt(&mut self) -> Option<Stmt>
+  fn parse_stmt(&mut self) -> ParseResult<Stmt>
   {
     let token = self.peek()?;
 
@@ -510,7 +592,7 @@ impl Parser
     }
   }
 
-  fn parse_block(&mut self) -> Option<Vec<Stmt>> 
+  fn parse_block(&mut self) -> ParseResult<Vec<Stmt>> 
   {
     let mut statements = Vec::new();
 
@@ -526,7 +608,7 @@ impl Parser
     Some(statements)
   }
 
-  fn parse_return_stmt(&mut self) -> Option<Stmt>
+  fn parse_return_stmt(&mut self) -> ParseResult<Stmt>
   {
     self.advance();
 
@@ -555,7 +637,7 @@ impl Parser
     })
   }
 
-  fn parse_if_stmt(&mut self) -> Option<Stmt>
+  fn parse_if_stmt(&mut self) -> ParseResult<Stmt>
   {
     self.advance();
 

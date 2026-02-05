@@ -1,8 +1,11 @@
 mod frontend; // or `pub mod frontend;` in lib.rs
 use frontend::parser::Parser;
 use frontend::lexer::Lexer;
+use miette::{NamedSource, Result};
 
-fn main()
+
+
+fn main() -> Result<()>
 {
   let source = r#"
         entry main;
@@ -271,7 +274,7 @@ fn operators_demo(): void
   //   println!("{:?} => {}", token.token_kind, token.lexed_value);
   // }
 
-  let source = r#"
+  let code = r#"
     // 1. Test Variables (Let Stmt)
 
     let a: int = 10;
@@ -308,15 +311,34 @@ fn operators_demo(): void
 
     let a: string = "5";
 
-    fn loops_demo(): void
-{}
+    fn loops_demo(name: string): void
+    {
+      if (a == 0) {
+        print("Yay");
+      } else if (a == 99) 
+      {
+        print("yahoooo");
+      }
+
+      return a;
+      return;
+    }
   "#;
-  let mut lexer = Lexer::new(source);
-  let tokens = lexer.tokenize();
+  
+  let mut lexer = Lexer::new(code);
 
-  let mut parser = Parser::new(tokens);
-  let ast = parser.produce_ast();
-
-  println!("{:?}", ast);
+  match lexer.tokenize() 
+  {
+    Ok(tokens) => 
+    {
+      println!("{:#?}", tokens);
+      Ok(())
+    }
+    Err(err) => 
+    {
+      let src = NamedSource::new("test.ast", code.to_string());
+      Err(miette::Report::new(err).with_source_code(src))
+    }
+  }
 
 }

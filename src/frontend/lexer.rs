@@ -1,5 +1,8 @@
+use miette::{Diagnostic, SourceSpan};
+use thiserror::Error;
+
 #[derive(Debug, Clone, PartialEq)]
-pub enum TokenKind
+pub enum TokenKind 
 {
   // Keywords
   Entry,
@@ -32,224 +35,260 @@ pub enum TokenKind
   ArrayType,
 
   // Literals
-  Identifier,     // variable or function name
-  IntegerLiteral, // 123
-  FloatLiteral,   // 12.34
-  StringLiteral,  // "hello"
-  BoolLiteral,    // true, false
+  Identifier,
+  IntegerLiteral,
+  FloatLiteral,
+  StringLiteral,
+  BoolLiteral,
 
   // Symbols
-  Colon,          // :
-  Semicolon,      // ;
-  Comma,          // ,
-  Dot,            // .
-  LeftParen,      // (
-  RightParen,     // )
-  LeftBrace,      // {
-  RightBrace,     // }
-  LeftBracket,    // [
-  RightBracket,   // ]
+  Colon,
+  Semicolon,
+  Comma,
+  Dot,
+  LeftParen,
+  RightParen,
+  LeftBrace,
+  RightBrace,
+  LeftBracket,
+  RightBracket,
 
   // Operators
-  Assign,         // =
-  Plus,           // +
-  Minus,          // -
-  Star,           // *
-  Slash,          // /
-  Percent,        // %
-  Caret,          // ^
-  PlusEqual,      // +=
-  MinusEqual,     // -=
-  StarEqual,      // *=
-  SlashEqual,     // /=
-  PercentEqual,   // %=
-  CaretEqual,     // ^=
+  Assign,
+  Plus,
+  Minus,
+  Star,
+  Slash,
+  Percent,
+  Caret,
+  PlusEqual,
+  MinusEqual,
+  StarEqual,
+  SlashEqual,
+  PercentEqual,
+  CaretEqual,
 
   // Comparison
-  Equal,          // ==
-  NotEqual,       // !=
-  Greater,        // >
-  GreaterEqual,   // >=
-  Less,           // <
-  LessEqual,      // <=
+  Equal,
+  NotEqual,
+  Greater,
+  GreaterEqual,
+  Less,
+  LessEqual,
 
   // Logical
-  And,            // &&
-  Or,             // ||
-  Not,            // !
-  KeywordAnd,     // AND
-  KeywordOr,      // OR
-  KeywordNot,     // NOT
+  And,
+  Or,
+  Not,
+  KeywordAnd,
+  KeywordOr,
+  KeywordNot,
 
   // Ranges
-  RangeExclusive, // ..
-  RangeInclusive, // ..=
+  RangeExclusive,
+  RangeInclusive,
 
   // Special
-  Arrow,          // =>
-  Underscore,     // _
+  Arrow,
+  Underscore,
   EndOfFile,
 }
 
-
 #[derive(Debug, Clone)]
-pub struct Token
-{
+pub struct Token {
   pub token_kind: TokenKind,
   pub lexed_value: String,
+  pub span: SourceSpan,
   pub line: usize,
   pub col: usize,
 }
 
+#[derive(Debug, Error, Diagnostic)]
+pub enum LexError 
+{
+  #[error("unexpected character: '{ch}'")]
+  #[diagnostic(code(lexer::unexpected_character))]
+  UnexpectedCharacter 
+  {
+    ch: char,
+    #[label("not a valid token here")]
+    span: SourceSpan,
+  },
+
+  #[error("unterminated string literal")]
+  #[diagnostic(code(lexer::unterminated_string))]
+  UnterminatedString 
+  {
+    #[label("string starts here")]
+    span: SourceSpan,
+  },
+}
+
+pub type LexResult<T> = Result<T, LexError>;
 
 #[derive(Debug, Clone)]
-pub struct Lexer
+pub struct Lexer 
 {
-  pub source_code: Vec<char>,
+  pub source_code: String,
   pub position: usize,
   pub line: usize,
   pub col: usize,
 }
 
-impl Lexer
+impl Lexer 
 {
-  pub fn new(source_code: &str) -> Lexer
+  pub fn new(source_code: &str) -> Lexer 
   {
-    Lexer
+    Lexer 
     {
-      source_code: source_code.chars().collect(),
+      source_code: source_code.to_string(),
       position: 0,
       line: 1,
       col: 0,
     }
   }
 
-  pub fn peek(&self) -> Option<char>
+  fn next_char(&self, offset: usize) -> Option<char> 
   {
-    if self.position >= self.source_code.len()
-    {
-      None
-    } else
-    {
-      Some(self.source_code[self.position])
-    }
-  }
-
-  pub fn advance(&mut self) -> Option<char>
-  {
-    if self.position >= self.source_code.len()
+    if self.position >= self.source_code.len() 
     {
       return None;
     }
 
-    let character: char = self.source_code[self.position];
-    self.position += 1;
+    self.source_code[self.position..].chars().nth(offset)
+  }
 
-    if character == '\n'
+  fn make_span(&self, start_pos: usize) -> SourceSpan 
+  {
+    let end_pos = self.position;
+    SourceSpan::new(start_pos.into(), (end_pos - start_pos).into())
+  }
+
+  fn make_token(&self, kind: TokenKind, lexed_value: String, start_pos: usize, start_line: usize, start_col: usize) -> Token 
+  {
+    Token 
+    {
+      token_kind: kind,
+      lexed_value,
+      span: self.make_span(start_pos),
+      line: start_line,
+      col: start_col,
+    }
+  }
+
+  pub fn peek(&self) -> Option<char> 
+  {
+    self.next_char(0)
+  }
+
+  pub fn advance(&mut self) -> Option<char> 
+  {
+    let ch = self.peek()?;
+    let ch_len = ch.len_utf8();
+
+    self.position += ch_len;
+
+    if ch == '\n' 
     {
       self.line += 1;
       self.col = 0;
-    } else
+    } else 
     {
       self.col += 1;
     }
 
-    Some(character)
+    Some(ch)
   }
 
-  pub fn skip_whitespace_and_comments(&mut self)
+  pub fn skip_whitespace_and_comments(&mut self) 
   {
-    while let Some(character) = self.peek()
+    loop 
     {
-      if character.is_whitespace()
+      let Some(ch) = self.peek() else { break };
+
+      if ch.is_whitespace() 
       {
         self.advance();
         continue;
       }
 
-      // /* */
-
-      if character == '/'
-      {
-        if let Some(next_character) = self.source_code.get(self.position + 1)
+      // comments
+      if ch == '/' {
+        match self.next_char(1) 
         {
-          if *next_character == '/'
+          Some('/') => 
           {
+            // line comment
             self.advance();
             self.advance();
-
-            while let Some(character) = self.peek()
+            while let Some(c) = self.peek() 
             {
-              if character == '\n'
+              if c == '\n' 
               {
                 break;
               }
-
               self.advance();
             }
-
-            continue;
-          } else if *next_character == '*'
-          {
-            self.advance();
-            self.advance();
-
-            while let Some(character) = self.peek()
-            {
-              if character == '*'
-              {
-                if let Some(next_character) = self.source_code.get(self.position + 1)
-                {
-                  if *next_character == '/'
-                  {
-                    self.advance();
-                    self.advance();
-                    break;
-                  }
-                }
-              }
-
-              self.advance();
-            }
-
             continue;
           }
+          Some('*') => 
+          {
+            // block comment
+            self.advance();
+            self.advance();
+            while let Some(c) = self.peek() 
+            {
+              if c == '*' && self.next_char(1) == Some('/') 
+              {
+                self.advance();
+                self.advance();
+                break;
+              }
+              self.advance();
+            }
+            continue;
+          }
+          _ => {}
         }
       }
+
       break;
     }
   }
 
-  pub fn next_token(&mut self) -> Option<Token>
+  pub fn next_token(&mut self) -> LexResult<Option<Token>> 
   {
     self.skip_whitespace_and_comments();
 
-    if self.position >= self.source_code.len()
+    if self.position >= self.source_code.len() 
     {
-      return None;
+      return Ok(None);
     }
 
+    let start_pos = self.position;
     let start_line = self.line;
     let start_col = self.col;
-    let character = self.peek()?;
+
+    let ch = self.peek().unwrap();
 
     // Identifiers & keywords
-    if character.is_ascii_alphabetic() || character == '_'
+    if ch.is_ascii_alphabetic() || ch == '_' 
     {
       let mut ident = String::new();
-      while let Some(ch) = self.peek()
+
+      while let Some(c) = self.peek() 
       {
-        if ch.is_ascii_alphanumeric() || ch == '_'
+        if c.is_ascii_alphanumeric() || c == '_' 
         {
-          ident.push(ch);
+          ident.push(c);
           self.advance();
-        } else
+        } else 
         {
           break;
         }
       }
 
-      let kind = match ident.as_str()
+      let kind = match ident.as_str() 
       {
         "entry" => TokenKind::Entry,
         "include" => TokenKind::Include,
@@ -280,129 +319,91 @@ impl Lexer
         "AND" => TokenKind::KeywordAnd,
         "OR" => TokenKind::KeywordOr,
         "NOT" => TokenKind::KeywordNot,
-        "true" => TokenKind::BoolLiteral,
-        "false" => TokenKind::BoolLiteral,
+        "true" | "false" => TokenKind::BoolLiteral,
         _ => TokenKind::Identifier,
       };
 
-      return Some(Token {
-        token_kind: kind,
-        lexed_value: ident,
-        line: start_line,
-        col: start_col,
-      });
+      return Ok(Some(self.make_token(kind, ident, start_pos, start_line, start_col)));
     }
 
-    // Numbers (int or float)
-    if character.is_ascii_digit()
+    // Numbers
+    if ch.is_ascii_digit() 
     {
       let mut value = String::new();
       let mut is_float = false;
 
-      while let Some(ch) = self.peek()
+      while let Some(c) = self.peek() 
       {
-        if ch.is_ascii_digit()
+        if c.is_ascii_digit() 
         {
-          value.push(ch);
+          value.push(c);
           self.advance();
-        } else if ch == '.' && !is_float
+        } else if c == '.' && !is_float 
         {
           is_float = true;
-          value.push(ch);
+          value.push(c);
           self.advance();
-        } else
+        } else 
         {
           break;
         }
       }
 
-      let kind = if is_float
+      let kind = if is_float 
       {
         TokenKind::FloatLiteral
-      } else
+      } else 
       {
         TokenKind::IntegerLiteral
       };
 
-      return Some(Token {
-        token_kind: kind,
-        lexed_value: value,
-        line: start_line,
-        col: start_col,
-      });
+      return Ok(Some(self.make_token(kind, value, start_pos, start_line, start_col)));
     }
 
     // String literals
-    if character == '"'
+    if ch == '"' 
     {
-      self.advance(); // skip opening quote
+      self.advance(); // opening quote
       let mut string_val = String::new();
 
-      while let Some(ch) = self.peek()
+      while let Some(c) = self.peek() 
       {
-        if ch == '"'
+        if c == '"' 
         {
-          self.advance(); // skip closing quote
-          break;
+          self.advance(); // closing quote
+          return Ok(Some(self.make_token(TokenKind::StringLiteral, string_val, start_pos, start_line, start_col)));
         }
-        string_val.push(ch);
+
+        string_val.push(c);
         self.advance();
       }
 
-      if self.peek().is_none()
+      return Err(LexError::UnterminatedString 
       {
-        panic!(
-          "Unterminated string literal at line {}, col {}",
-          start_line, start_col
-        );
-      }
-
-      return Some(Token {
-        token_kind: TokenKind::StringLiteral,
-        lexed_value: string_val,
-        line: start_line,
-        col: start_col,
+        span: SourceSpan::new(start_pos.into(), 1usize.into()),
       });
     }
 
-    // Helper for looking ahead
-    let next = |offset: usize| self.source_code.get(self.position + offset).copied();
-
-    // Ranges
-    if character == '.'
+    if ch == '.' && self.next_char(1) == Some('.') 
     {
-      if next(1) == Some('.')
+      if self.next_char(2) == Some('=') 
       {
-        if next(2) == Some('=')
-        {
-          self.advance();
-          self.advance();
-          self.advance();
+        self.advance();
+        self.advance();
+        self.advance();
 
-          return Some(Token {
-            token_kind: TokenKind::RangeInclusive,
-            lexed_value: "..=".to_string(),
-            line: start_line,
-            col: start_col,
-          });
-        } else
-        {
-          self.advance();
-          self.advance();
-
-          return Some(Token {
-            token_kind: TokenKind::RangeExclusive,
-            lexed_value: "..".to_string(),
-            line: start_line,
-            col: start_col,
-          });
-        }
+        return Ok(Some(self.make_token(TokenKind::RangeInclusive, "..=".to_string(), start_pos, start_line, start_col)));
+      } else 
+      {
+        self.advance();
+        self.advance();
+        return Ok(Some(self.make_token(TokenKind::RangeExclusive, "..".to_string(), start_pos, start_line, start_col)));
       }
     }
 
     // Two-character operators
-    let two_chars: String = format!("{}{}", character, next(1).unwrap_or('\0'));
-    let kind = match two_chars.as_str()
+    let two = format!("{}{}", ch, self.next_char(1).unwrap_or('\0'));
+    let kind = match two.as_str() 
     {
       "==" => Some(TokenKind::Equal),
       "!=" => Some(TokenKind::NotEqual),
@@ -420,23 +421,16 @@ impl Lexer
       _ => None,
     };
 
-    if let Some(token_kind) = kind
+    if let Some(token_kind) = kind 
     {
       self.advance();
       self.advance();
-
-      return Some(Token {
-        token_kind,
-        lexed_value: two_chars,
-        line: start_line,
-        col: start_col,
-      });
+      return Ok(Some(self.make_token(token_kind, two, start_pos, start_line, start_col)));
     }
 
     // Single-character tokens
     self.advance();
-
-    let token_kind = match character
+    let token_kind = match ch 
     {
       '=' => TokenKind::Assign,
       '+' => TokenKind::Plus,
@@ -459,34 +453,43 @@ impl Lexer
       '_' => TokenKind::Underscore,
       '<' => TokenKind::Less,
       '>' => TokenKind::Greater,
-      _ => panic!("Unexpected character '{}' at line {}, col {}", character, start_line, start_col),
+      _ => 
+      {
+        return Err(LexError::UnexpectedCharacter 
+        {
+          ch,
+          span: SourceSpan::new(start_pos.into(), ch.len_utf8().into()),
+        });
+      }
     };
 
-    Some(Token {
+    Ok(Some(self.make_token(
       token_kind,
-      lexed_value: character.to_string(),
-      line: start_line,
-      col: start_col,
-    })
+      ch.to_string(),
+      start_pos,
+      start_line,
+      start_col,
+    )))
   }
 
-  pub fn tokenize(&mut self) -> Vec<Token>
+  pub fn tokenize(&mut self) -> LexResult<Vec<Token>> 
   {
     let mut tokens: Vec<Token> = Vec::new();
 
-    while let Some(token) = self.next_token()
+    while let Some(token) = self.next_token()? 
     {
       tokens.push(token);
     }
 
-    tokens.push(Token{
+    tokens.push(Token 
+    {
       token_kind: TokenKind::EndOfFile,
       lexed_value: String::new(),
+      span: SourceSpan::new(self.position.into(), 0usize.into()),
       line: self.line,
       col: self.col,
     });
 
-    return tokens;
+    Ok(tokens)
   }
-
 }
