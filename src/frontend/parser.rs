@@ -66,7 +66,7 @@ impl Parser
     match self.tokens.last() 
     {
       Some(token) => token.span,
-      None => SourceSpan::new(0.into(), 0.into()),
+      None => SourceSpan::new(0usize.into(), 0usize.into()),
     }
   }
 
@@ -79,7 +79,7 @@ impl Parser
     }
   }
 
-  fn unexpected_eof<T>(expected: &'static str) -> ParseResult<T> 
+  fn unexpected_eof<T>(&self, expected: &'static str) -> ParseResult<T> 
   {
     Err(ParseError::UnexpectedEof 
     { 
@@ -88,9 +88,76 @@ impl Parser
     })
   }
 
-  fn advanece_or_eof(&mut self, &'static str) -> ParseResult<Token>
+  fn advance_or_eof(&mut self, expected: &'static str) -> ParseResult<Token>
   {
-    
+    match self.advance()
+    {
+      Some(token) => Ok(token),
+      None => Err(ParseError::UnexpectedEof 
+      { 
+        expected,
+        span: self.current_span_or_eof(), 
+      }),
+    }
+  }
+
+  fn expect(&mut self, expected: TokenKind) -> ParseResult<Token> 
+  {
+    let token = match self.current() 
+    {
+      Some(token) => token.clone(),
+      None => 
+      {
+        return Err(ParseError::UnexpectedEof 
+        {
+          expected: "token",
+          span: self.eof_span(),
+        })
+      }
+    };
+
+    if token.token_kind == expected 
+    {
+      self.position += 1;
+      Ok(token)
+    } else 
+    {
+      Err(ParseError::UnexpectedToken 
+      {
+        expected: vec![expected],
+        found: token.token_kind,
+        span: token.span,
+      })
+    }
+  }
+
+  fn expect_any(&mut self, expected: &[TokenKind]) -> ParseResult<Token> 
+  {
+    let token = match self.current() 
+    {
+      Some(token) => token.clone(),
+      None => 
+      {
+        return Err(ParseError::UnexpectedEof 
+        {
+          expected: "token",
+          span: self.eof_span(),
+        })
+      }
+    };
+
+    if expected.iter().any(|kind| kind == &token.token_kind) 
+    {
+      self.position += 1;
+      Ok(token)
+    } else {
+      Err(ParseError::UnexpectedToken 
+      {
+        expected: expected.to_vec(),
+        found: token.token_kind,
+        span: token.span,
+      })
+    }
   }
 
   fn token_to_binary_op(token: &TokenKind) -> Option<BinaryOperator>
@@ -152,6 +219,14 @@ impl Parser
   pub fn peek(&self) -> Option<&Token>
   {
     self.tokens.get(self.position)
+  }
+
+  pub fn peek_or_eof(&self, expected: &'static str) -> ParseResult<&Token> 
+  {
+    self.peek().ok_or_else(|| ParseError::UnexpectedEof 
+    { expected,
+      span: self.current_span_or_eof(), 
+    })
   }
 
   pub fn advance(&mut self) -> Option<Token>
@@ -262,46 +337,65 @@ impl Parser
 
     }
 
-    Some(left)
+    Ok(left)
   }
 
   pub fn parse_primary(&mut self) -> ParseResult<Expr>
   {
-    let token = self.advance()?;
+    let token = self.advance_or_eof("expression")?;
 
     match &token.token_kind
     {
-      TokenKind::IntegerLiteral => {
-        let value: i64 = token.lexed_value.parse::<i64>().expect("Invalid integer literal");
-        Some(Expr::Integer(value))
+      TokenKind::IntegerLiteral => 
+      {
+        let value: i64 = token.lexed_value.parse::<i64>().map_err(|_| ParseError::InvalidLiteral 
+        { 
+          kind: token.token_kind.clone(), 
+          span: token.span,
+        })?;
+
+        Ok(Expr::Integer(value))
       }
 
       TokenKind::FloatLiteral => {
-        let value: f64 = token.lexed_value.parse::<f64>().expect("Invalid Float literal");
-        Some(Expr::Float(value))
+        let value: f64 = token.lexed_value.parse::<f64>().map_err(|_| ParseError::InvalidLiteral 
+        { 
+          kind: token.token_kind.clone(), 
+          span: token.span,
+        })?;
+
+        Ok(Expr::Float(value))
       }
 
       TokenKind::BoolLiteral => {
-        let value: bool = token.lexed_value.parse::<bool>().expect("Invalid Bool Literal");
-        Some(Expr::Bool(value))
+        let value: bool = token.lexed_value.parse::<bool>().map_err(|_| ParseError::InvalidLiteral 
+        { 
+          kind: token.token_kind.clone(), 
+          span: token.span,
+        })?;
+
+        Ok(Expr::Bool(value))
       }
 
       TokenKind::StringLiteral => {
-        let value: String = token.lexed_value.parse::<String>().expect("Invalid String Literal");
-        Some(Expr::String(value))
+        let value: String = token.lexed_value.parse::<String>().map_err(|_| ParseError::InvalidLiteral 
+        { 
+          kind: token.token_kind.clone(), 
+          span: token.span,
+        })?;
+        
+        Ok(Expr::String(value))
       }
 
       TokenKind::Identifier => {
-        Some(Expr::Identifier(token.lexed_value))
+        Ok(Expr::Identifier(token.lexed_value))
       }
 
       TokenKind::LeftParen =>
       {
         let expression = self.parse_expr(0)?;
-        match self.advance()?.token_kind {
-          TokenKind::RightParen => Some(expression),
-          _ => panic!("Expected closing paretheses"),
-        }
+        self.expect(TokenKind::RightParen)?;
+        Ok(expression)
       }
 
       TokenKind::Minus | TokenKind::KeywordNot | TokenKind::Not =>
@@ -309,72 +403,58 @@ impl Parser
         let op = Self::token_to_unary_op(&token.token_kind).expect("invalid unary operator");
 
         let right_expr = self.parse_expr(15)?;
-        Some(Expr::Unary {
+        Ok(Expr::Unary {
           op,
           expr: Box::new(right_expr),
         })
       }
 
       _ => {
-        panic!("Unexpected token {:?} at line {}, col {}", token.token_kind, token.line, token.col);
+        Err(ParseError::UnexpectedToken {
+          expected: vec![
+            TokenKind::IntegerLiteral,
+            TokenKind::FloatLiteral,
+            TokenKind::BoolLiteral,
+            TokenKind::StringLiteral,
+            TokenKind::Identifier,
+            TokenKind::LeftParen,
+            TokenKind::Minus,
+            TokenKind::Not,
+            TokenKind::KeywordNot,
+          ],
+          found: token.token_kind.clone(),
+          span: token.span,
+        })
       }
     }
   }
 
   fn parse_let_stmt(&mut self) -> ParseResult<Stmt>
   {
-    self.advance();
+    self.expect(TokenKind::Let)?;
+    let name = self.expect(TokenKind::Identifier)?.lexed_value;
 
-    let identifier_token = self.peek()?;
+    self.expect(TokenKind::Colon)?;
 
-    let name = match identifier_token.token_kind {
-      TokenKind::Identifier => identifier_token.lexed_value.to_string(),
-      _ => panic!("Invalide variable identifier after 'let'"),
-    };
-
-    self.advance();
-
-    let colon_token = self.peek()?;
-    if colon_token.token_kind != TokenKind::Colon
-    {
-      panic!("Invalid Variable type declaration");
-    }
-
-    self.advance();
-
-    let token_type = self.peek()?;
-    let var_type = match token_type.token_kind
-    {
-      TokenKind::IntType
-        | TokenKind::FloatType
-        | TokenKind::StringType
-        | TokenKind::BoolType
-        | TokenKind::VoidType
-        | TokenKind::ArrayType => token_type.lexed_value.clone(),
-      _ => panic!("Expected a valid type after ':' (int, float, bool, string, etc.), got {:?}", token_type.token_kind),
-    };
-
-    self.advance();
+    let var_type = self.expect_any(&
+      [
+        TokenKind::IntType,
+        TokenKind::FloatType,
+        TokenKind::StringType,
+        TokenKind::BoolType,
+        TokenKind::ArrayType,
+      ])?.lexed_value;
 
     let mut value: Option<Expr> = None;
-    if let Some(next) = self.peek() 
+    if self.peek_or_eof("'=' or ';'")?.token_kind == TokenKind::Assign
     {
-      if next.token_kind == TokenKind::Assign 
-      {
-        self.advance();
-        value = Some(self.parse_expr(0)?);
-      }
+      self.expect(TokenKind::Assign)?;
+      value = Some(self.parse_expr(0)?);
     }
 
-    let semi = self.peek()?;
-    if semi.token_kind != TokenKind::Semicolon
-    {
-      panic!("Expected ';' after let statement");
-    } 
+    self.expect(TokenKind::Semicolon)?;
 
-    self.advance();
-
-    Some(Stmt::Let 
+    Ok(Stmt::Let 
     { 
       name,
       var_type: Some(var_type),
@@ -387,79 +467,84 @@ impl Parser
   {
     let mut ast: Vec<Stmt> = Vec::new();
 
-    while self.peek().is_some() && self.peek().unwrap().token_kind != TokenKind::EndOfFile 
+    while let Some(token) = self.peek()  
     {
-      if let Some(stmt) = self.parse_stmt()
+      if token.token_kind == TokenKind::EndOfFile 
       {
-        ast.push(stmt);
+        break;
       }
+
+      let stmt = self.parse_stmt()?;
+      ast.push(stmt);
     }
 
-    ast
+    Ok(ast)
   }
 
 
   fn parse_print_stmt(&mut self) -> ParseResult<Stmt>
   {
 
-    let new_line = self.peek()?.token_kind == TokenKind::Println;
-
-    self.advance();
-
-    if self.peek()?.token_kind != TokenKind::LeftParen 
-    {
-      panic!("Expected '(' after print statement");
-    }
-
-    self.advance();
+    let new_line = self.advance_or_eof("println")?.token_kind == TokenKind::Println;
+    self.expect(TokenKind::LeftParen)?;
 
     let mut text_string: Option<String> = None;
     let mut args: Vec<Expr> = Vec::new();
 
-    if self.peek()?.token_kind == TokenKind::StringLiteral 
+    match self.peek_or_eof("string literal, expression, or ')'")?.token_kind 
     {
-      text_string = Some(self.advance()?.lexed_value.clone());
-    }
-
-    match self.peek()?.token_kind 
-    {
-      TokenKind::RightParen => {}, 
-
-      TokenKind::Comma => 
+      TokenKind::RightParen => {},
+      TokenKind::StringLiteral => 
       {
-        self.advance();
-        
-        while self.peek()?.token_kind != TokenKind::RightParen 
+        text_string = Some(self.expect(TokenKind::StringLiteral)?.lexed_value);
+          
+        if self.peek_or_eof("',' or ')'")?.token_kind == TokenKind::Comma 
         {
-          args.push(self.parse_expr(0)?);
+          self.expect(TokenKind::Comma)?;
 
-          if self.peek()?.token_kind == TokenKind::Comma 
+          loop 
           {
-            self.advance();
+            args.push(self.parse_expr(0)?);
+
+            match self.peek_or_eof("',' or ')'")?.token_kind 
+            {
+              TokenKind::Comma => { self.expect(TokenKind::Comma)?; },
+              TokenKind::RightParen => { break; },
+              _ => 
+              {
+                return Err(ParseError::UnexpectedToken 
+                { 
+                  expected: vec![TokenKind::Comma, TokenKind::RightParen], 
+                  found: self.peek_or_eof("',' or ')'")?.token_kind.clone(), 
+                  span: self.peek_or_eof("',' or ')'")?.span,
+                });
+              }
+            }
           }
         }
-      },
+      }, 
 
       _ => 
       {
-        panic!("Expected ',' or ')' after print statement");
+        args.push(self.parse_expr(0)?);
+        let next = self.peek_or_eof("')'")?;
+
+        if next.token_kind != TokenKind::RightParen 
+        {
+          return Err(ParseError::UnexpectedToken 
+          {
+            expected: vec![TokenKind::RightParen],
+            found: next.token_kind.clone(),
+            span: next.span,
+          });
+        }
       }
     }
 
-    if self.peek()?.token_kind != TokenKind::RightParen
-    {
-      panic!("Expected ')' after print statement");
-    }
-    
-    self.advance();
-    if self.peek()?.token_kind != TokenKind::Semicolon 
-    {
-      panic!("Expected ';' after print statement");
-    }
+    self.expect(TokenKind::RightParen)?;
+    self.expect(TokenKind::Semicolon)?;
 
-    self.advance();
-
-    Some(Stmt::Print 
+    Ok(Stmt::Print 
     {
       text_string,
       args,
@@ -469,105 +554,67 @@ impl Parser
 
   fn parse_function_stmt(&mut self) -> ParseResult<Stmt>
   {
-    self.advance();
+    self.expect(TokenKind::Function)?;
 
-    let name: String = self.advance()?.lexed_value;
+    let name = self.expect(TokenKind::Identifier)?.lexed_value;
 
     let mut params: Vec<(String, String)> = Vec::new();
 
-    if self.peek()?.token_kind != TokenKind::LeftParen
+    self.expect(TokenKind::LeftParen)?;
+
+    while self.peek_or_eof(")")?.token_kind != TokenKind::RightParen 
     {
-      panic!("Expected '(' after function name"); 
-    }
-
-    self.advance();
-
-    while self.peek()?.token_kind != TokenKind::RightParen 
-    {
-      if !params.is_empty() && self.peek()?.token_kind != TokenKind::Comma  
+      if !params.is_empty() 
       {
-        panic!("Expected a comma character (',') to separate the parameters");
-      } else if !params.is_empty()
-      {
-        self.advance();
+        self.expect(TokenKind::Comma)?;
       }
 
-      if self.peek()?.token_kind != TokenKind::Identifier 
-      {
-        panic!("Expected identifier after '('");
-      }
+      let param_name = self.expect(TokenKind::Identifier)?.lexed_value;
 
-      let param_name = self.advance()?.lexed_value;
+      self.expect(TokenKind::Colon)?;
 
-      if self.peek()?.token_kind != TokenKind::Colon 
-      {
-        panic!("Expected ':' after parameter name");
-      }
-
-      self.advance();
-
-      let token_type = self.advance()?;
-      let param_type = match token_type.token_kind
-      {
-        TokenKind::IntType
-        | TokenKind::FloatType
-        | TokenKind::StringType
-        | TokenKind::BoolType
-        | TokenKind::VoidType
-        | TokenKind::ArrayType => token_type.lexed_value.clone(),
-        _ => panic!("Expected a valid type after ':' (int, float, bool, string, etc.), got {:?}", token_type.token_kind),
-      };
+      let param_type = self.expect_any(&
+      [
+        TokenKind::IntType,
+        TokenKind::FloatType,
+        TokenKind::StringType,
+        TokenKind::BoolType,
+        TokenKind::VoidType,
+        TokenKind::ArrayType,
+      ])?.lexed_value;
 
       params.push((param_name, param_type));
     }
 
-    if self.peek()?.token_kind != TokenKind::RightParen
-    {
-      panic!("Expected ')' after parameters");
-    }
+    self.expect(TokenKind::RightParen)?;
+    self.expect(TokenKind::Colon)?;
 
-    self.advance();
+    let return_type = self.expect_any(&
+      [
+        TokenKind::IntType,
+        TokenKind::FloatType,
+        TokenKind::StringType,
+        TokenKind::BoolType,
+        TokenKind::VoidType,
+        TokenKind::ArrayType,
+      ])?.lexed_value;
 
-    if self.peek()?.token_kind != TokenKind::Colon 
-    {
-      panic!("Expected ':' to declare function return type");
-    }
+    self.expect(TokenKind::LeftBrace)?;
 
-    self.advance();
+    let body = self.parse_block()?;
 
-    let return_type = self.advance()?;
-    let return_type = match return_type.token_kind
-    {
-      TokenKind::IntType
-      | TokenKind::FloatType
-      | TokenKind::StringType
-      | TokenKind::BoolType
-      | TokenKind::VoidType
-      | TokenKind::ArrayType => return_type.lexed_value.clone(),
-      _ => panic!("Expected a valid type after ':' (int, float, bool, string, etc.), got {:?}", return_type.token_kind),
-    };
-
-    if self.peek()?.token_kind != TokenKind::LeftBrace 
-    {
-      panic!("Expected '{{' after function return type");
-    }
-
-    self.advance();
-
-    let body = self.parse_block();
-
-    Some(Stmt::Function 
+    Ok(Stmt::Function 
     { 
       name, 
       params, 
       return_type: Some(return_type), 
-      body: body?, 
+      body: body, 
     })
   }
 
   fn parse_stmt(&mut self) -> ParseResult<Stmt>
   {
-    let token = self.peek()?;
+    let token = self.peek_or_eof("statement")?;
 
     match token.token_kind 
     {
@@ -579,15 +626,8 @@ impl Parser
       _ =>
       {
         let expr = self.parse_expr(0)?;
-        let semi = self.peek()?;
-
-        if semi.token_kind != TokenKind::Semicolon
-        {
-          panic!("Expected ';' after statement");
-        }
-
-        self.advance();
-        Some(Stmt::ExprStmt(expr))
+        self.expect(TokenKind::Semicolon)?;
+        Ok(Stmt::ExprStmt(expr))
       }
     }
   }
@@ -596,73 +636,46 @@ impl Parser
   {
     let mut statements = Vec::new();
 
-    while self.peek()?.token_kind != TokenKind::RightBrace 
+    while self.peek_or_eof("}")?.token_kind != TokenKind::RightBrace
     {
-      if let Some(stmt) = self.parse_stmt() 
-      {
-        statements.push(stmt);
-      }
+      let stmt = self.parse_stmt()?;
+      statements.push(stmt);
     } 
 
-    self.advance();
-    Some(statements)
+    self.expect(TokenKind::RightBrace)?;
+    Ok(statements)
   }
 
   fn parse_return_stmt(&mut self) -> ParseResult<Stmt>
   {
-    self.advance();
+    self.expect(TokenKind::Return)?;
 
-    if self.peek()?.token_kind == TokenKind::Semicolon 
+    match self.peek_or_eof("return value or ';'")?.token_kind
     {
-      self.advance(); 
+      TokenKind::Semicolon => 
+      {
+        self.expect(TokenKind::Semicolon)?;
+        Ok(Stmt::Return { value: None })
+      },
 
-      return Some(Stmt::Return 
-      { 
-        value: None, 
-      });
+      _ => 
+      {
+        let value = self.parse_expr(0)?;
+        self.expect(TokenKind::Semicolon)?;
+        Ok(Stmt::Return { value: Some(value) })
+      }
     }
-
-    let value = self.parse_expr(0);
-
-    if self.peek()?.token_kind != TokenKind::Semicolon 
-    {
-      panic!("Expected a semicolon at the end of the stmt");
-    }
-
-    self.advance();
-
-    Some(Stmt::Return 
-    { 
-      value 
-    })
   }
 
   fn parse_if_stmt(&mut self) -> ParseResult<Stmt>
   {
-    self.advance();
-
-    if self.peek()?.token_kind != TokenKind::LeftParen 
-    {
-      panic!("Expected '(' after 'if'");
-    }
-
-    self.advance();
+    self.expect(TokenKind::If)?;
+    self.expect(TokenKind::LeftParen)?;
 
     let condition = self.parse_expr(0)?;
 
-    if self.peek()?.token_kind != TokenKind::RightParen 
-    {
-      panic!("Expected ')' after if condition");
-    }
-
-    self.advance();
-
-    if self.peek()?.token_kind != TokenKind::LeftBrace
-    {
-      panic!("Expected '{{' after if condition");
-    }
-
-    self.advance();
+    self.expect(TokenKind::RightParen)?;
+    self.expect(TokenKind::LeftBrace)?;
 
     let then_body = self.parse_block()?;
 
@@ -674,19 +687,14 @@ impl Parser
 
     let else_body = if else_exists 
     {
-      self.advance();
+      self.expect(TokenKind::Else)?;
 
-      if self.peek()?.token_kind == TokenKind::If 
+      if self.peek_or_eof("if or '{'")?.token_kind == TokenKind::If 
       {
         Some(vec![self.parse_if_stmt()?])
       } else 
       {
-        if self.peek()?.token_kind != TokenKind::LeftBrace
-        {
-        panic!("Expected '{{' after 'else'");
-        }
-
-        self.advance();
+        self.expect(TokenKind::LeftBrace)?;
         Some(self.parse_block()?)
       }
       
@@ -695,7 +703,7 @@ impl Parser
       None
     };
 
-    Some(Stmt::If 
+    Ok(Stmt::If 
     { 
       condition,
       then_body, 
