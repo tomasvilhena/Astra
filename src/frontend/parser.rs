@@ -1,5 +1,3 @@
-use core::panic;
-
 use super::lexer::{Token, TokenKind};
 use super::ast::{Expr, BinaryOperator, UnaryOperator, Stmt};
 use miette::{Diagnostic, SourceSpan};
@@ -101,6 +99,29 @@ impl Parser
     }
   }
 
+  fn insertion_before_current(&self) -> SourceSpan 
+  {
+    match self.current() 
+    {
+      Some(token) => SourceSpan::new(token.span.offset().into(), 0usize.into()),
+      None => self.eof_span(),
+    }
+  }
+
+  fn insertion_after_previus(&self) -> SourceSpan 
+  {
+    if self.position > 0 
+    {
+      if let Some(prev) = self.tokens.get(self.position - 1) 
+      {
+        let end = prev.span.offset() + prev.span.len();
+        return SourceSpan::new(end.into(), 0usize.into());
+      }
+    }
+
+    self.insertion_before_current()
+  }
+
   fn expect(&mut self, expected: TokenKind) -> ParseResult<Token> 
   {
     let token = match self.current() 
@@ -122,12 +143,40 @@ impl Parser
       Ok(token)
     } else 
     {
-      Err(ParseError::UnexpectedToken 
+      match expected 
       {
-        expected: vec![expected],
-        found: token.token_kind,
-        span: token.span,
-      })
+        TokenKind::Semicolon => 
+        {
+          Err(ParseError::MissingToken 
+          { 
+            expected, 
+            span: self.insertion_after_previus(),
+          })
+        }
+
+        TokenKind::RightBrace
+        | TokenKind::RightParen
+        | TokenKind::RightBracket
+        | TokenKind::Colon => 
+        {
+          Err(ParseError::MissingToken 
+          { 
+            expected, 
+            span: self.insertion_before_current(),
+          })
+        }
+
+        _ => 
+        {
+          Err(ParseError::UnexpectedToken 
+          {
+            expected: vec![expected],
+            found: token.token_kind,
+            span: token.span,
+          })
+        }
+      }
+      
     }
   }
 
@@ -400,7 +449,12 @@ impl Parser
 
       TokenKind::Minus | TokenKind::KeywordNot | TokenKind::Not =>
       {
-        let op = Self::token_to_unary_op(&token.token_kind).expect("invalid unary operator");
+        let op = Self::token_to_unary_op(&token.token_kind).ok_or_else(|| ParseError::UnexpectedToken 
+        { 
+          expected: vec![TokenKind::Minus, TokenKind::KeywordNot, TokenKind::Not], 
+          found: token.token_kind.clone(), 
+          span: token.span,
+        })?;
 
         let right_expr = self.parse_expr(15)?;
         Ok(Expr::Unary {
@@ -485,7 +539,7 @@ impl Parser
   fn parse_print_stmt(&mut self) -> ParseResult<Stmt>
   {
 
-    let new_line = self.advance_or_eof("println")?.token_kind == TokenKind::Println;
+    let new_line = self.advance_or_eof("print or println")?.token_kind == TokenKind::Println;
     self.expect(TokenKind::LeftParen)?;
 
     let mut text_string: Option<String> = None;

@@ -331,9 +331,24 @@ fn operators_demo(): void
   {
     Ok(tokens) => 
     {
-      println!("{:#?}", tokens);
-      Ok(())
+      let mut parser = Parser::new(tokens);
+
+      match parser.produce_ast() 
+      {
+        Ok(ast) => 
+        {
+          print!("{:?}", ast);
+          Ok(())
+        }
+
+        Err(err) => 
+        {
+          let src = NamedSource::new("test.ast", code.to_string());
+          Err(miette::Report::new(err).with_source_code(src))
+        }
+      }
     }
+
     Err(err) => 
     {
       let src = NamedSource::new("test.ast", code.to_string());
