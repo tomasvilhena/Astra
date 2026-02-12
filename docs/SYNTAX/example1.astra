@@ -106,27 +106,28 @@ fn input_demo(): void
 // ------------------------------
 fn loops_demo(): void
 {
-  // for loop with ranges
-  for i: int in 0..5 // 0..5 → 0,1,2,3,4 (end exclusive)
+  // repeat loop with counts
+  repeat 5 as i // repeats 5 times: i = 0..4
   {
     print("{}", i);
   }
 
-  for i: int in 0..=5 // 0..=5 → 0,1,2,3,4,5 (end inclusive)
+  repeat 6 as i // repeats 6 times: i = 0..5
   {
     print("{}", i);
   }
 
   // Iterating arrays by index
   let book_collection: array<string> = ["lord of the rings", "hobbit"];
-  for i: int in book_collection
+  repeat book_collection.length() as i
   {
     print("{}", book_collection[i]);
   }
 
   // Iterating arrays by value
-  for book: string in book_collection
+  repeat book_collection.length() as i
   {
+    let book: string = book_collection[i];
     print("{}", book);
   }
 

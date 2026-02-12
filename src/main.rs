@@ -1,13 +1,11 @@
 mod frontend; // or `pub mod frontend;` in lib.rs
-use frontend::parser::Parser;
 use frontend::lexer::Lexer;
+use frontend::parser::Parser;
 use miette::{NamedSource, Result};
 
-
-
-fn main() -> Result<()>
+fn main() -> Result<()> 
 {
-  let source = r#"
+    let source = r#"
         entry main;
 // ==============================
 // Astra Programming Language Syntax Demo
@@ -116,27 +114,28 @@ fn input_demo(): void
 // ------------------------------
 fn loops_demo(): void
 {
-  // for loop with ranges
-  for i: int in 0..5 // 0..5 → 0,1,2,3,4 (end exclusive)
+  // repeat loop with counts
+  repeat 5 as i // repeats 5 times: i = 0..4
   {
     print("{}", i);
   }
 
-  for i: int in 0..=5 // 0..=5 → 0,1,2,3,4,5 (end inclusive)
+  repeat 6 as i // repeats 6 times: i = 0..5
   {
     print("{}", i);
   }
 
   // Iterating arrays by index
   let book_collection: array<string> = ["lord of the rings", "hobbit"];
-  for i: int in book_collection
+  repeat book_collection.length() as i
   {
     print("{}", book_collection[i]);
   }
 
   // Iterating arrays by value
-  for book: string in book_collection
+  repeat book_collection.length() as i
   {
+    let book: string = book_collection[i];
     print("{}", book);
   }
 
@@ -264,15 +263,15 @@ fn operators_demo(): void
     
   }
 
-    "#;
+  "#;
 
-  //let mut lexer = Lexer::new(source);
-  //let tokens = lexer.tokenize();
+    //let mut lexer = Lexer::new(source);
+    //let tokens = lexer.tokenize();
 
-  // for token in tokens
-  // {
-  //   println!("{:?} => {}", token.token_kind, token.lexed_value);
-  // }
+    // for token in tokens
+    // {
+    //   println!("{:?} => {}", token.token_kind, token.lexed_value);
+    // }
 
   let code = r#"
     // 1. Test Variables (Let Stmt)
@@ -340,7 +339,7 @@ fn operators_demo(): void
 
     }
   "#;
-  
+
   let mut lexer = Lexer::new(code);
 
   match lexer.tokenize() 
@@ -360,7 +359,7 @@ fn operators_demo(): void
         Err(err) => 
         {
           let src = NamedSource::new("test.ast", code.to_string());
-          Err(miette::Report::new(err).with_source_code(src))
+            Err(miette::Report::new(err).with_source_code(src))
         }
       }
     }
@@ -371,5 +370,4 @@ fn operators_demo(): void
       Err(miette::Report::new(err).with_source_code(src))
     }
   }
-
 }

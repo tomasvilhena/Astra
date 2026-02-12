@@ -83,14 +83,14 @@ fn input_demo(): void
 
 fn loops_demo(): void 
 {
-    // for loop, repeats a set amout of times
-    for i: int in 0..5 // the 0..5 means that it will repeat 5 times, one for 0, one for 1, one for 2, one for 3, and one for 4,  5 is exclusive 
+    // repeat loop, repeats a set amount of times
+    repeat 5 as i // repeats 5 times, i goes from 0 to 4
     {
         print("{}", i);
     }
 
-    // astra also allows also inclusive ranges
-    for i: int in 0..=5
+    // to include 5, repeat 6 times (0..5)
+    repeat 6 as i
     {
         print("{}", i);
     }
@@ -99,16 +99,16 @@ fn loops_demo(): void
     // to go hover an array in astra we can do
     let book_collection: array<string> = ["lord of the rings", "hobbit"];
     
-    for i: int in book_collection
+    repeat book_collection.length() as i
     {
         print("{}", book_collection[i]);
     }
 
-    // or if we use a string we could the same, but instead of i haveng the position of the elemnt, here i has the value of the element 
-    // at that position
-    for i: string in book_collection
+    // to iterate values, declare the element inside the repeat block
+    repeat book_collection.length() as i
     {
-        print("{}", i);
+        let book: string = book_collection[i];
+        print("{}", book);
     }
 
     println("");
