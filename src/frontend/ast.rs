@@ -103,5 +103,11 @@ pub enum Stmt //statments
   Return {
     value: Option<Expr>,
   },
+
+  While
+  {
+    condition: Expr,
+    body: Vec<Stmt>, 
+  },
 }
 

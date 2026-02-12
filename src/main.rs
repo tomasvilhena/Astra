@@ -281,6 +281,12 @@ fn operators_demo(): void
     let b: int = 5;
     let name: string = "Astra";
 
+    foo();
+    foo(23);
+    foo(23+2);
+    foo(a);
+    foo(a);
+
     // 2. Test Printing (Print Stmt) with arguments
 
     print("Testing parser for: ");
@@ -322,6 +328,16 @@ fn operators_demo(): void
 
       return a;
       return;
+    }
+
+    while 
+    {
+    
+    }
+
+    while
+    {
+
     }
   "#;
   
