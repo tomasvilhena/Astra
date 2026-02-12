@@ -354,6 +354,14 @@ impl Parser
   {
     let mut left = self.parse_primary()?;
 
+    if let Some(token) = self.peek() 
+    {
+      if token.token_kind == TokenKind::LeftParen 
+      {
+        left = self.finish_call(left)?;
+      }
+    }
+    
     loop
     {
       let op_token = match self.peek()
@@ -387,6 +395,62 @@ impl Parser
     }
 
     Ok(left)
+  }
+
+  fn parse_while_stmt(&mut self) -> ParseResult<Stmt> 
+  {
+    self.expect(TokenKind::While)?;
+    
+    let condition;
+
+    if self.peek_or_eof("'('")?.token_kind == TokenKind::LeftParen 
+    {
+      self.expect(TokenKind::LeftParen)?;
+      condition = self.parse_expr(0)?;
+      self.expect(TokenKind::RightParen)?;
+      self.expect(TokenKind::LeftBrace)?;
+    } else 
+    {
+      self.expect(TokenKind::LeftBrace)?;
+      condition = Expr::Bool(true);
+    }
+
+    let body = self.parse_block()?; 
+
+    Ok(Stmt::While
+    { 
+      condition, 
+      body,
+    })
+  }
+
+  fn finish_call(&mut self, callee: Expr) -> ParseResult<Expr> 
+  {
+    self.expect(TokenKind::LeftParen)?;
+    let mut args = Vec::new();
+
+    if self.peek_or_eof("')' or expression")?.token_kind != TokenKind::RightParen 
+    {
+      loop 
+      {
+          args.push(self.parse_expr(0)?);
+
+          if self.peek_or_eof("',' or ')'")?.token_kind == TokenKind::Comma 
+          {
+            self.expect(TokenKind::Comma)?;
+          } else 
+          {
+            break;
+          }
+      }
+    } 
+
+    self.expect(TokenKind::RightParen)?;
+    Ok(Expr::Call 
+    { 
+      callee: Box::new(callee), 
+      args 
+    })
   }
 
   pub fn parse_primary(&mut self) -> ParseResult<Expr>
@@ -676,6 +740,7 @@ impl Parser
       TokenKind::Print | TokenKind::Println => self.parse_print_stmt(),
       TokenKind::Function => self.parse_function_stmt(),
       TokenKind::If => self.parse_if_stmt(),
+      TokenKind::While => self.parse_while_stmt(),
       TokenKind::Return => self.parse_return_stmt(),
       _ =>
       {
