@@ -1,4 +1,5 @@
-mod frontend; // or `pub mod frontend;` in lib.rs
+mod frontend;
+mod runtime;
 use frontend::lexer::Lexer;
 use frontend::parser::Parser;
 use miette::{NamedSource, Result};
@@ -27,9 +28,9 @@ fn main() -> Result<()>
 // Functions are declared with the fn keyword.
 // Syntax: fn name(params): return_type { ... }
 //
-// Return type can be any type (int, string, etc.) or void if nothing is returned.
+// Return type can be any type (number, string, etc.) or void if nothing is returned.
 
-fn add(a: int, b: int): int
+fn add(a: number, b: number): number
 {
   return a + b;
   // explicit return
@@ -45,7 +46,7 @@ fn greet(name: string = "World"): void
 // ------------------------------
 fn array_demo(): void
 {
-  let nums: array<int> = [1, 2];
+  let nums: array<number> = [1, 2];
 
   nums.push_end(3); // adds value to the end of an array
 
@@ -53,7 +54,7 @@ fn array_demo(): void
 
   nums.remove(0); // removes the number at the specified position
 
-  let more: array<int> = [4, 5];
+  let more: array<number> = [4, 5];
 
   nums.merge(more); // appends the "more" array to the end of the nums array
 
@@ -89,7 +90,7 @@ fn input_demo(): void
   println("Enter your age: ");
 
   let input: string = read(); // reads input from the user
-  let age: int = input.parse_int(); // converts the string to an integer
+  let age: number = input.parse_number(); // converts the string to a number
 
   // Match is used for branching on values
   match age
@@ -140,7 +141,7 @@ fn loops_demo(): void
   }
 
   // while loop
-  let x: int = 0;
+  let x: number = 0;
 
   while (x < 3)
   {
@@ -154,7 +155,7 @@ fn loops_demo(): void
   }
 
   // do-while loop
-  let y: int = 0;
+  let y: number = 0;
   do
   {
     println("Do-while: {}", y);
@@ -172,8 +173,8 @@ fn loops_demo(): void
 // ------------------------------
 fn operators_demo(): void
 {
-  let a: int = 10;
-  let b: int = 3;
+  let a: number = 10;
+  let b: number = 3;
 
   // Arithmetic
   println("Sum: {}", a + b);
@@ -205,7 +206,7 @@ fn operators_demo(): void
     try
     {
       println("Trying risky code...");
-      let x: int = "oops".parse_int();
+      let x: number = "oops".parse_int();
       // will fail
     } on
     {
@@ -221,7 +222,7 @@ fn operators_demo(): void
 
   fn debug_demo(): void
   {
-    let number: int = 42;
+    let number: number = 42;
     let text: string = "astra";
 
     debug(number, text);
@@ -274,10 +275,11 @@ fn operators_demo(): void
     // }
 
   let code = r#"
+    entry "main";
     // 1. Test Variables (Let Stmt)
 
-    let a: int = 10;
-    let b: int = 5;
+    let a: number = 10;
+    let b: number = 5;
     let name: string = "Astra";
 
     foo();
@@ -293,7 +295,7 @@ fn operators_demo(): void
 
     // 3. Test Expressions & Math
 
-    let sum: int = a + b * 2; 
+    let sum: number = a + b * 2; 
     println("10 + 5 * 2 = {}", sum);
 
     // 4. Test Logic & Boolean
