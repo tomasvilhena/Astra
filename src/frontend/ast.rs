@@ -1,8 +1,7 @@
 #[derive(Debug, Clone)]
 pub enum Expr 
 {
-  Integer(i64),
-  Float(f64),
+  Number(f64),
   Bool(bool),
   Identifier(String),
   String(String),
@@ -44,8 +43,7 @@ pub enum Expr
 #[derive(Debug, Clone)]
 pub enum Pattern 
 {
-  Int(i64),
-  Float(f64),
+  Number(f64),
   Bool(bool),
   String(String),
   Identifier(String),

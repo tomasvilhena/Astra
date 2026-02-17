@@ -489,24 +489,14 @@ impl Parser
     {
       TokenKind::Underscore => Ok(Pattern::Wildcard),
 
-      TokenKind::IntegerLiteral => 
-      {
-        let value = token.lexed_value.parse::<i64>().map_err(|_| ParseError::InvalidLiteral {
-          kind: token.token_kind.clone(),
-          span: token.span,
-        })?;
-
-        Ok(Pattern::Int(value))
-      }
-
-      TokenKind::FloatLiteral => 
+      TokenKind::NumberLiteral => 
       {
         let value = token.lexed_value.parse::<f64>().map_err(|_| ParseError::InvalidLiteral {
           kind: token.token_kind.clone(),
           span: token.span,
         })?;
 
-        Ok(Pattern::Float(value))
+        Ok(Pattern::Number(value))
       }
 
       TokenKind::BoolLiteral => 
@@ -525,8 +515,7 @@ impl Parser
       {
         expected: vec![
           TokenKind::Underscore,
-          TokenKind::IntegerLiteral,
-          TokenKind::FloatLiteral,
+          TokenKind::NumberLiteral,
           TokenKind::BoolLiteral,
           TokenKind::StringLiteral,
         ],
@@ -620,23 +609,8 @@ impl Parser
     let token = self.advance_or_eof("expression")?;
     
     match &token.token_kind 
-    {
-      TokenKind::IntegerLiteral => 
-      {
-        let value: i64 =
-        token
-        .lexed_value
-        .parse::<i64>()
-        .map_err(|_| ParseError::InvalidLiteral 
-        {
-          kind: token.token_kind.clone(),
-          span: token.span,
-        })?;
-        
-        Ok(Expr::Integer(value))
-      }
-      
-      TokenKind::FloatLiteral => 
+    { 
+      TokenKind::NumberLiteral => 
       {
         let value: f64 =
         token
@@ -648,7 +622,7 @@ impl Parser
           span: token.span,
         })?;
         
-        Ok(Expr::Float(value))
+        Ok(Expr::Number(value))
       }
       
       TokenKind::BoolLiteral => 
@@ -712,8 +686,7 @@ impl Parser
             return Err(ParseError::UnexpectedToken 
             { 
               expected: vec![
-                TokenKind::IntegerLiteral,
-                TokenKind::FloatLiteral,
+                TokenKind::NumberLiteral, 
                 TokenKind::BoolLiteral,
                 TokenKind::StringLiteral,
                 TokenKind::Identifier,
@@ -757,8 +730,7 @@ impl Parser
       {
         expected: vec!
         [
-          TokenKind::IntegerLiteral,
-          TokenKind::FloatLiteral,
+          TokenKind::NumberLiteral, 
           TokenKind::BoolLiteral,
           TokenKind::StringLiteral,
           TokenKind::Identifier,
@@ -808,8 +780,7 @@ impl Parser
     
     let var_type = self.expect_any(&
     [
-      TokenKind::IntType,
-      TokenKind::FloatType,
+      TokenKind::NumberType, 
       TokenKind::StringType,
       TokenKind::BoolType,
       TokenKind::ArrayType,
@@ -1014,8 +985,7 @@ impl Parser
         
       let param_type = self.expect_any(&
       [
-        TokenKind::IntType,
-        TokenKind::FloatType,
+        TokenKind::NumberType, 
         TokenKind::StringType,
         TokenKind::BoolType,
         TokenKind::VoidType,
@@ -1030,8 +1000,7 @@ impl Parser
         
     let return_type = self.expect_any(&
     [
-      TokenKind::IntType,
-      TokenKind::FloatType,
+      TokenKind::NumberType,
       TokenKind::StringType,
       TokenKind::BoolType,
       TokenKind::VoidType,

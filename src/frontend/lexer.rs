@@ -26,8 +26,7 @@ pub enum TokenKind
   Clear,
   
   // Types
-  IntType,
-  FloatType,
+  NumberType,
   StringType,
   BoolType,
   VoidType,
@@ -35,8 +34,7 @@ pub enum TokenKind
   
   // Literals
   Identifier,
-  IntegerLiteral,
-  FloatLiteral,
+  NumberLiteral,
   StringLiteral,
   BoolLiteral,
   
@@ -317,8 +315,7 @@ impl Lexer
         "read" => TokenKind::Read,
         "repeat" => TokenKind::Repeat,
         "clear" => TokenKind::Clear,
-        "int" => TokenKind::IntType,
-        "float" => TokenKind::FloatType,
+        "number" => TokenKind::NumberType,
         "string" => TokenKind::StringType,
         "bool" => TokenKind::BoolType,
         "void" => TokenKind::VoidType,
@@ -336,21 +333,21 @@ impl Lexer
       ));
     }
     
-    // Numbers
+    // Number
     if ch.is_ascii_digit() 
     {
       let mut value = String::new();
-      let mut is_float = false;
-      
+      let mut seen_dot = false;
+
       while let Some(c) = self.peek() 
       {
         if c.is_ascii_digit() 
         {
           value.push(c);
           self.advance();
-        } else if c == '.' && !is_float 
+        } else if c == '.' && !seen_dot && self.next_char(1) != Some('.')
         {
-          is_float = true;
+          seen_dot = true;
           value.push(c);
           self.advance();
         } else 
@@ -358,20 +355,15 @@ impl Lexer
           break;
         }
       }
-      
-      let kind = if is_float 
-      {
-        TokenKind::FloatLiteral
-      } else 
-      {
-        TokenKind::IntegerLiteral
-      };
-      
-      return Ok(Some(
-        self.make_token(kind, value, start_pos, start_line, start_col),
-      ));
+
+      return Ok(Some(self.make_token(
+        TokenKind::NumberLiteral,
+        value,
+        start_pos,
+        start_line,
+        start_col,
+      )));
     }
-    
     // String literals
     if ch == '"' 
     {
