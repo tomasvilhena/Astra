@@ -1,4 +1,4 @@
-entry main;
+entry "main";
 // ==============================
 // Astra Programming Language Syntax Demo
 // ==============================
@@ -7,7 +7,7 @@ entry main;
 
 /* Multi-line comment */
 // ------------------------------
-// #include
+// include
 // ------------------------------
 // Allows importing libraries.
 // Libraries are written in Astra syntax as well.
@@ -144,19 +144,6 @@ fn loops_demo(): void
       continue;
     } // skip rest of this iteration
   }
-
-  // do-while loop
-  let y: int = 0;
-  do
-  {
-    println("Do-while: {}", y);
-    y += 1;
-
-    if (y == 1)
-    {
-       break; // exit loop early
-    }
-  } while (y < 2);
 }
 
 // ------------------------------
@@ -206,22 +193,6 @@ fn operators_demo(): void
   }
 
   // ------------------------------
-  // Debugging
-  // ------------------------------
-  // The debug function prints variable names and values.
-  // It can also evaluate expressions and show the result.
-
-  fn debug_demo(): void
-  {
-    let number: int = 42;
-    let text: string = "astra";
-
-    debug(number, text);
-    // prints both variable name and value debug(number == 42);
-    // prints "number == 42: true"
-  }
-
-  // ------------------------------
   // Entry Point
   // ------------------------------
 
@@ -245,8 +216,6 @@ fn operators_demo(): void
     operators_demo();
 
     error_handling_demo();
-
-    debug_demo();
 
     clear(); // clears the screen
 

@@ -1,4 +1,4 @@
-use super::ast::{BinaryOperator, Expr, Stmt, UnaryOperator};
+use super::ast::{BinaryOperator, Expr, Stmt, UnaryOperator, Pattern};
 use super::lexer::{Token, TokenKind};
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
@@ -45,6 +45,27 @@ pub enum ParseError
   {
     expected: &'static str,
     #[label("End of file here")]
+    span: SourceSpan,
+  },
+
+  #[error("missing mandatory entry directive")]
+  #[diagnostic(code(parser::missing_entry))]
+  MissingEntry {
+    #[label("entry must appear at the top of the file")]
+    span: SourceSpan,
+  },
+
+  #[error("entry directive must be the first top-level directive")]
+  #[diagnostic(code(parser::entry_not_first))]
+  EntryNotFirst {
+    #[label("entry is only valid at the top of the file")]
+    span: SourceSpan,
+  },
+
+  #[error("include directive is only allowed after entry and before normal code")]
+  #[diagnostic(code(parser::include_not_in_header))]
+  IncludeNotInHeader {
+    #[label("include is only valid in the header section")]
     span: SourceSpan,
   },
 }
@@ -281,6 +302,58 @@ impl Parser
     
     token
   }
+
+  fn parse_postfix(&mut self, base: Expr) -> ParseResult<Expr> 
+  {
+    let mut expr = base;
+
+    loop 
+    {
+      let token_kind = match self.peek() 
+      {
+        Some(token) => token.token_kind.clone(),
+        None => break,
+      };
+
+      match token_kind 
+      {
+        TokenKind::LeftParen =>
+        {
+          expr = self.finish_call(expr)?;
+        },
+
+        TokenKind::Dot =>
+        {
+          self.expect(TokenKind::Dot)?;
+          let identifier = self.expect(TokenKind::Identifier)?.lexed_value;
+          expr = Expr::Member 
+          { 
+            object: Box::new(expr), 
+            property: identifier,
+          }
+        },
+
+        TokenKind::LeftBracket =>
+        {
+          self.expect(TokenKind::LeftBracket)?;
+          let index = self.parse_expr(0)?;
+          self.expect(TokenKind::RightBracket)?;
+
+          expr = Expr::Index 
+          { 
+            object: Box::new(expr), 
+            index: Box::new(index),
+          }
+        }
+
+        _ => break,
+      }
+
+      
+    }
+
+    Ok(expr)
+  }
   
   // pub fn is_end_of_file(&self) -> bool
   // {
@@ -353,15 +426,8 @@ impl Parser
   pub fn parse_expr(&mut self, min_binding_power: u8) -> ParseResult<Expr> 
   {
     let mut left = self.parse_primary()?;
-    
-    if let Some(token) = self.peek() 
-    {
-      if token.token_kind == TokenKind::LeftParen 
-      {
-        left = self.finish_call(left)?;
-      }
-    }
-    
+    left = self.parse_postfix(left)?;
+
     loop 
     {
       let op_token = match self.peek() 
@@ -396,6 +462,105 @@ impl Parser
     }
     
     Ok(left)
+  }
+
+  fn parse_try_stmt(&mut self) -> ParseResult<Stmt> 
+  {
+
+    self.expect(TokenKind::Try)?;
+    self.expect(TokenKind::LeftBrace)?;
+    let try_body = self.parse_block()?;
+
+    self.expect(TokenKind::On)?;
+    self.expect(TokenKind::LeftBrace)?;
+    let on_body = self.parse_block()?;
+    
+    Ok(Stmt::Try 
+    { 
+      try_body, 
+      on_body 
+    })
+  }
+
+  fn parse_pattern(&mut self) -> ParseResult<Pattern> 
+  {
+    let token = self.advance_or_eof("match pattern")?;
+    match token.token_kind 
+    {
+      TokenKind::Underscore => Ok(Pattern::Wildcard),
+
+      TokenKind::IntegerLiteral => 
+      {
+        let value = token.lexed_value.parse::<i64>().map_err(|_| ParseError::InvalidLiteral {
+          kind: token.token_kind.clone(),
+          span: token.span,
+        })?;
+
+        Ok(Pattern::Int(value))
+      }
+
+      TokenKind::FloatLiteral => 
+      {
+        let value = token.lexed_value.parse::<f64>().map_err(|_| ParseError::InvalidLiteral {
+          kind: token.token_kind.clone(),
+          span: token.span,
+        })?;
+
+        Ok(Pattern::Float(value))
+      }
+
+      TokenKind::BoolLiteral => 
+      {
+        let value = token.lexed_value.parse::<bool>().map_err(|_| ParseError::InvalidLiteral {
+          kind: token.token_kind.clone(),
+          span: token.span,
+        })?;
+
+        Ok(Pattern::Bool(value))
+      }
+
+      TokenKind::StringLiteral => Ok(Pattern::String(token.lexed_value)),
+
+      _ => Err(ParseError::UnexpectedToken 
+      {
+        expected: vec![
+          TokenKind::Underscore,
+          TokenKind::IntegerLiteral,
+          TokenKind::FloatLiteral,
+          TokenKind::BoolLiteral,
+          TokenKind::StringLiteral,
+        ],
+
+        found: token.token_kind,
+        span: token.span,
+      }),
+    }
+  }
+
+  fn parse_match_stmt(&mut self) -> ParseResult<Stmt> 
+  {
+    self.expect(TokenKind::Match)?;
+    let value = self.parse_expr(0)?;
+    self.expect(TokenKind::LeftBrace)?;
+
+    let mut arms: Vec<(Pattern, Vec<Stmt>)> = Vec::new();
+
+    while self.peek_or_eof("'}' or pattern")?.token_kind != TokenKind::RightBrace 
+    {
+      let pattern = self.parse_pattern()?;
+      self.expect(TokenKind::Arrow)?;
+      self.expect(TokenKind::LeftBrace)?;
+
+      let body = self.parse_block()?;
+      arms.push((pattern, body));
+    }
+
+    self.expect(TokenKind::RightBrace)?;
+    Ok(Stmt::Match 
+    { 
+      value, 
+      arms
+    })
   }
   
   fn parse_while_stmt(&mut self) -> ParseResult<Stmt> 
@@ -523,6 +688,50 @@ impl Parser
         self.expect(TokenKind::RightParen)?;
         Ok(expression)
       }
+
+      TokenKind::LeftBracket => 
+      {
+        let mut expressions: Vec<Expr> = Vec::new();
+
+        while self.peek_or_eof("']'")?.token_kind != TokenKind::RightBracket
+        {
+          let expression = self.parse_expr(0)?;
+          expressions.push(expression);
+
+          if self.peek_or_eof("']'")?.token_kind == TokenKind::RightBracket
+          {
+            break;
+          }
+
+          self.expect(TokenKind::Comma)?;
+
+          if self.peek_or_eof("'expression'")?.token_kind == TokenKind::RightBracket 
+          {
+            let token = self.peek_or_eof("'expression'")?;
+            
+            return Err(ParseError::UnexpectedToken 
+            { 
+              expected: vec![
+                TokenKind::IntegerLiteral,
+                TokenKind::FloatLiteral,
+                TokenKind::BoolLiteral,
+                TokenKind::StringLiteral,
+                TokenKind::Identifier,
+                TokenKind::LeftParen,
+                TokenKind::Minus,
+                TokenKind::Not,
+                TokenKind::KeywordNot,
+              ],
+              found: token.token_kind.clone(), 
+              span: token.span,
+            });
+          }
+        }
+
+        self.expect(TokenKind::RightBracket)?;
+
+        Ok(Expr::ArrayLiteral(expressions))
+      }
       
       TokenKind::Minus | TokenKind::KeywordNot | TokenKind::Not => 
       {
@@ -625,6 +834,8 @@ impl Parser
     
   pub fn produce_ast(&mut self) -> ParseResult<Vec<Stmt>> 
   {
+    let mut require_entry = true;
+    let mut include_allowed = true;
     let mut ast: Vec<Stmt> = Vec::new();
       
     while let Some(token) = self.peek() 
@@ -633,11 +844,73 @@ impl Parser
       {
         break;
       }
-        
-      let stmt = self.parse_stmt()?;
-      ast.push(stmt);
+
+      match token.token_kind.clone() 
+      {
+        TokenKind::Entry => 
+        {
+          if !require_entry 
+          {
+            return Err(ParseError::EntryNotFirst 
+            { 
+              span: token.span,
+            });
+          }
+
+          let stmt = self.parse_entry_stmt()?;
+
+          ast.push(stmt);
+          require_entry = false;
+        },
+
+        TokenKind::Include => 
+        {
+          if require_entry 
+          {
+            return Err(ParseError::MissingEntry 
+            { 
+              span: token.span,
+            });
+          }
+
+          if !include_allowed 
+          {
+            return Err(ParseError::IncludeNotInHeader 
+            { 
+              span: token.span,
+            })
+          }
+
+          let stmt = self.parse_include_stmt()?;
+          ast.push(stmt);
+        },
+
+        _ => 
+        {
+          if require_entry 
+          {
+            return Err(ParseError::MissingEntry 
+            { 
+              span: token.span,
+            });
+          }
+
+          include_allowed = false;
+          
+          let stmt = self.parse_stmt()?;
+          ast.push(stmt);
+        }
+      }  
     }
       
+    if require_entry 
+    {
+      return Err(ParseError::MissingEntry 
+      { 
+        span: self.eof_span(),
+      });
+    }
+
     Ok(ast)
   }
     
@@ -793,6 +1066,8 @@ impl Parser
       TokenKind::Repeat => self.parse_repeat_stmt(),
       TokenKind::Continue => self.parse_continue_stmt(),
       TokenKind::Break => self.parse_break_stmt(),
+      TokenKind::Match => self.parse_match_stmt(),
+      TokenKind::Try => self.parse_try_stmt(),
       
       _ => 
       {
@@ -801,6 +1076,30 @@ impl Parser
         Ok(Stmt::ExprStmt(expr))
       }
     }
+  }
+
+  fn parse_entry_stmt(&mut self) -> ParseResult<Stmt> 
+  {
+    self.expect(TokenKind::Entry)?;
+    let name = self.expect(TokenKind::StringLiteral)?.lexed_value;
+    self.expect(TokenKind::Semicolon)?;
+
+    Ok(Stmt::Entry 
+    {
+      name,
+    })
+  }
+
+  fn parse_include_stmt(&mut self) -> ParseResult<Stmt> 
+  {
+    self.expect(TokenKind::Include)?;
+    let path = self.expect(TokenKind::StringLiteral)?.lexed_value;
+    self.expect(TokenKind::Semicolon)?;
+
+    Ok(Stmt::Include
+    {
+      path,
+    })
   }
         
   fn parse_block(&mut self) -> ParseResult<Vec<Stmt>> 
