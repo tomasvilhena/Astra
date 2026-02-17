@@ -6,22 +6,50 @@ pub enum Expr
   Bool(bool),
   Identifier(String),
   String(String),
+  ArrayLiteral(Vec<Expr>),
   
-  Unary {
+  Unary 
+  {
     op: UnaryOperator,
     expr: Box<Expr>,
   },
   
-  Binary {
+  Binary 
+  {
     left: Box<Expr>,
     op: BinaryOperator,
     right: Box<Expr>,
   },
   
-  Call {
+  Call 
+  {
     callee: Box<Expr>,
     args: Vec<Expr>,
   },
+
+  Member 
+  {
+    object: Box<Expr>,
+    property: String,
+  },
+
+  Index 
+  {
+    object: Box<Expr>,
+    index: Box<Expr>,
+  },
+
+}
+
+#[derive(Debug, Clone)]
+pub enum Pattern 
+{
+  Int(i64),
+  Float(f64),
+  Bool(bool),
+  String(String),
+  Identifier(String),
+  Wildcard, // _
 }
 
 #[derive(Debug, Clone)]
@@ -123,4 +151,26 @@ pub enum Stmt//statments
 
   Break,
   Continue,
+
+  Match 
+  {
+    value: Expr,
+    arms: Vec<(Pattern, Vec<Stmt>)>,
+  },
+
+  Entry 
+  {
+    name: String,
+  },
+
+  Include 
+  {
+    path: String,
+  },
+
+  Try 
+  {
+    try_body: Vec<Stmt>,
+    on_body: Vec<Stmt>,
+  }
 }
