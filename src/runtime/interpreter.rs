@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::fmt::format;
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
 
 use crate::frontend::ast::{Expr, Stmt, BinaryOperator, UnaryOperator, Pattern};
-use crate::runtime::value::Value;
+use crate::frontend::lexer::TokenKind;
+use crate::runtime::value::{self, Value};
 
 
 #[derive(Error, Diagnostic, Debug)]
@@ -69,15 +71,248 @@ impl Interpreter
       Expr::Number(value) => Ok(Value::Number(*value)),
       Expr::Bool(value) => Ok(Value::Bool(*value)),
       Expr::String(value) => Ok(Value::String(value.clone())),
-      Expr::Identifier(name) => { }
-      Expr::ArrayLiteral(items) => { }
+      Expr::Identifier(name) => 
+      {
+        if let Some(frame) = self.call_stack.last() 
+        {
+          if let Some(value) = frame.locals.get(name) 
+          {
+            return Ok(value.clone());
+          }
+        }
 
-      Expr::Unary { op, expr } => { }
-      Expr::Binary { left, op, right } => { }
+        self.global.get(name).cloned().ok_or(InterpreterError::UndefinedVariable { name: name.clone() })
+      }, 
 
-      Expr::Call { callee, args } => { }
-      Expr::Member { object, property } => { }
-      Expr::Index { object, index } => { }
+      Expr::ArrayLiteral(items) => 
+      { 
+        let mut values = Vec::new();
+        for item in items 
+        {
+          values.push(self.eval_expr(item)?);
+        }
+
+        Ok(Value::Array(values))
+      },
+
+      Expr::Unary { op, expr } => 
+      {
+        let value = self.eval_expr(expr)?;
+        match op 
+        {
+          UnaryOperator::Negative => 
+          {
+            match value 
+            {
+              Value::Number(n) => Ok(Value::Number(-n)),
+              other => Err(InterpreterError::TypeMismatch 
+              { 
+                expected: "number", 
+                found: other.type_name(), 
+              })
+            }
+          }, 
+          UnaryOperator::Not | UnaryOperator::KeywordNot => 
+          {
+            Ok(Value::Bool(!value.is_truthy()))
+          },
+        }
+      },
+
+      Expr::Binary { left, op, right } => 
+      {
+        let left = self.eval_expr(left)?;
+        let right = self.eval_expr(right)?;
+        match op 
+        {
+          BinaryOperator::Plus 
+          | BinaryOperator::Minus 
+          | BinaryOperator::Star
+          | BinaryOperator::Slash
+          | BinaryOperator::Caret
+          | BinaryOperator::Percent => 
+          {
+
+          },
+        }
+
+        return a;
+      },
+
+      Expr::Call { callee, args } => 
+      { 
+
+      },
+
+      Expr::Member { object, property } => 
+      { 
+
+      },
+
+      Expr::Index { object, index } => 
+      { 
+
+      },
+    }
+  }
+
+  fn eval_binary(&self, op: &BinaryOperator, left: Value, right: Value) -> RuntimeError<Value>
+  {
+    match op 
+    {
+      BinaryOperator::Plus => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) =>
+          {
+            return Ok(Value::Number(left + right));
+          },
+
+          (Value::String(left), Value::String(right)) =>
+          {
+            return Ok(Value::String(format!("{}{}", left, right)));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::InvalidBinaryOp 
+            { 
+              op: "+", 
+              left: left.type_name(), 
+              right: right.type_name(),
+            });
+          }
+        }
+      },
+
+      BinaryOperator::Minus => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) =>
+          {
+            return Ok(Value::Number(left - right));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::InvalidBinaryOp 
+            { 
+              op: "-", 
+              left: left.type_name(), 
+              right: right.type_name(),
+            });
+          }
+        }
+      }, 
+
+      BinaryOperator::Star => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) =>
+          {
+            return Ok(Value::Number(left * right));
+          },
+
+          (Value::String(left), Value::Number(right)) =>
+          {
+            if right.fract() == 0.0 
+            {
+              return Ok(Value::String(left.repeat(right as usize)));
+            }
+
+            return Err(InterpreterError::TypeMismatch 
+            { 
+              expected: "integer", 
+              found: "float", 
+            });
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::InvalidBinaryOp 
+            { 
+              op: "*", 
+              left: left.type_name(), 
+              right: right.type_name(),
+            });
+          }
+        }
+      },
+
+      BinaryOperator::Slash => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) =>
+          {
+            return Ok(Value::Number(left / right));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::InvalidBinaryOp 
+            { 
+              op: "/", 
+              left: left.type_name(), 
+              right: right.type_name(),
+            });
+          }
+        }
+      },
+
+      BinaryOperator::Caret => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) =>
+          {
+            return Ok(Value::Number(left.powf(right)));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::InvalidBinaryOp 
+            { 
+              op: "^", 
+              left: left.type_name(), 
+              right: right.type_name(),
+            });
+          }
+        }
+      },
+
+      BinaryOperator::Percent => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) =>
+          {
+            return Ok(Value::Number(left % right));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::InvalidBinaryOp 
+            { 
+              op: "%", 
+              left: left.type_name(), 
+              right: right.type_name(),
+            });
+          }
+        }
+      } 
+      _ => 
+      {
+        Err(InterpreterError::InvalidBinaryOp 
+        { 
+          op: (), 
+          left: (), 
+          right: () 
+        })
+      }
     }
   }
 }
