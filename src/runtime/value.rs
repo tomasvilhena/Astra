@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use crate::frontend::ast::{Expr, Stmt, BinaryOperator, UnaryOperator, Pattern};
-
 #[derive(Debug, Clone)]
 pub enum Value 
 {
@@ -27,6 +24,13 @@ impl Value
 
   pub fn is_truthy(&self) -> bool 
   {
-
+    match self 
+    {
+      Value::Bool(bool) => *bool,
+      Value::Number(number) => *number != 0.0,
+      Value::String(string) => !string.is_empty(),
+      Value::Array(array) => !array.is_empty(),
+      Value::Void => false,
+    }
   }
 }
