@@ -21,13 +21,39 @@ pub enum InterpreterError
     found: &'static str, 
   },
 
+  #[error("Cant divide {value} by 0, as that would be a mathematical error")]
+  DivideBy0
+  { 
+    value: f64,
+  },
+
+  #[error("Cant Multiply {text} by a negative number, or 0, as that would result in an unknown string size")]
+  MultiplyStringByInvalidValue
+  { 
+    text: String,
+  },
+
   #[error("Invalid binary operation `{op}` for {left} and {right}")]
   InvalidBinaryOp 
   {
     op: &'static str,
     left: &'static str,
     right: &'static str,
-  }
+  },
+
+  #[error("The operation {op} is not a Valid operation between a value of type {left} and a value of type {right}")]  
+  InvalidTypeComparisson
+  {
+    op: &'static str,
+    left: &'static str,
+    right: &'static str,
+  },
+
+  #[error("This character is not a Valid binary operator")]  
+  UnsupportedBinaryOp 
+  {
+    op: &'static str,
+  },
 }
 
 type RuntimeError<T> = Result<T, InterpreterError>;
@@ -61,6 +87,40 @@ impl Interpreter
       global: HashMap::new(),
       functions: HashMap::new(),
       call_stack: vec![],
+    }
+  }
+
+  fn binary_op_to_str(op: &BinaryOperator) -> &'static str 
+  {
+    match op 
+    {
+      BinaryOperator::Plus => "+",
+      BinaryOperator::Minus => "-",
+      BinaryOperator::Star => "*",
+      BinaryOperator::Slash => "/",
+      BinaryOperator::Percent => "%",
+      BinaryOperator::Caret => "^",
+      BinaryOperator::Equal => "==",
+      BinaryOperator::NotEqual => "!=",
+      BinaryOperator::Greater => ">",
+      BinaryOperator::GreaterEqual => ">=",
+      BinaryOperator::Less => "<",
+      BinaryOperator::LessEqual => "<=",
+      BinaryOperator::And => "&&",
+      BinaryOperator::Or => "||",
+      BinaryOperator::KeywordAnd => "AND",
+      BinaryOperator::KeywordOr => "OR",
+      BinaryOperator::Assign => "=",
+      BinaryOperator::PlusEqual => "+=",
+      BinaryOperator::MinusEqual => "-=",
+      BinaryOperator::StarEqual => "*=",
+      BinaryOperator::SlashEqual => "/=",
+      BinaryOperator::PercentEqual => "%=",
+      BinaryOperator::CaretEqual => "^=",
+      BinaryOperator::RangeExclusive => "..",
+      BinaryOperator::RangeInclusive => "..=",
+      BinaryOperator::Not => "!",
+      BinaryOperator::KeywordNot => "NOT",
     }
   }
 
@@ -213,11 +273,20 @@ impl Interpreter
         {
           (Value::Number(left), Value::Number(right)) =>
           {
+            
             return Ok(Value::Number(left * right));
           },
 
           (Value::String(left), Value::Number(right)) =>
           {
+            if right <= 0.0 
+            {
+              return Err(InterpreterError::MultiplyStringByInvalidValue 
+              { 
+                text: left, 
+              })
+            }
+
             if right.fract() == 0.0 
             {
               return Ok(Value::String(left.repeat(right as usize)));
@@ -248,6 +317,14 @@ impl Interpreter
         {
           (Value::Number(left), Value::Number(right)) =>
           {
+            if right == 0.0 
+            {
+              return Err(InterpreterError::DivideBy0 
+              { 
+                value: left, 
+              });
+            }
+
             return Ok(Value::Number(left / right));
           },
 
@@ -290,6 +367,14 @@ impl Interpreter
         {
           (Value::Number(left), Value::Number(right)) =>
           {
+            if right == 0.0 
+            {
+              return Err(InterpreterError::DivideBy0 
+              { 
+                value: left, 
+              });
+            }
+
             return Ok(Value::Number(left % right));
           },
 
@@ -303,14 +388,61 @@ impl Interpreter
             });
           }
         }
-      } 
+      },
+
+      BinaryOperator::Equal  
+      | BinaryOperator::NotEqual => 
+      {
+        let is_equal = left == right;
+        let result = if matches!(op, &BinaryOperator::Equal) 
+        {
+          is_equal
+        } else 
+        {
+          !is_equal
+        };
+
+        Ok(Value::Bool(result))
+      },
+
+      BinaryOperator::Less 
+      | BinaryOperator::LessEqual
+      | BinaryOperator::Greater 
+      | BinaryOperator::GreaterEqual => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) => 
+          {
+            let result = match op 
+            {
+              &BinaryOperator::Less => left < right, 
+              &BinaryOperator::LessEqual => left <= right,
+              &BinaryOperator::Greater => left > right, 
+              &BinaryOperator::GreaterEqual => left >= right,
+              _ => unreachable!(),
+            };
+
+            return Ok(Value::Bool(result));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::InvalidTypeComparisson 
+            { 
+              op: Self::binary_op_to_str(op), 
+              left: left.type_name(), 
+              right: right.type_name(), 
+            })
+          }
+        } 
+      }
+      
       _ => 
       {
-        Err(InterpreterError::InvalidBinaryOp 
+        Err(InterpreterError::UnsupportedBinaryOp
         { 
-          op: (), 
-          left: (), 
-          right: () 
+          op: Self::binary_op_to_str(op), 
         })
       }
     }
