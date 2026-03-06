@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::f32::consts::E;
 use std::fmt::format;
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
@@ -53,6 +54,20 @@ pub enum InterpreterError
   UnsupportedBinaryOp 
   {
     op: &'static str,
+  },
+
+  #[error("The range provided would result in a invalid range, as {left} is smaller or equal to {right}, resulting in a range of 0 or smaller")]  
+  InvalidRange 
+  {
+    left: f64,
+    right: f64,
+  },
+
+  #[error("The values of {left} and {right} must both be integers")]  
+  NonIntegerRange 
+  {
+    left: f64,
+    right: f64,
   },
 }
 
@@ -167,7 +182,7 @@ impl Interpreter
               Value::Number(n) => Ok(Value::Number(-n)),
               other => Err(InterpreterError::TypeMismatch 
               { 
-                expected: "number", 
+                expected: "Number", 
                 found: other.type_name(), 
               })
             }
@@ -182,21 +197,28 @@ impl Interpreter
       Expr::Binary { left, op, right } => 
       {
         let left = self.eval_expr(left)?;
-        let right = self.eval_expr(right)?;
-        match op 
-        {
-          BinaryOperator::Plus 
-          | BinaryOperator::Minus 
-          | BinaryOperator::Star
-          | BinaryOperator::Slash
-          | BinaryOperator::Caret
-          | BinaryOperator::Percent => 
-          {
 
-          },
+
+        if matches!(op, &BinaryOperator::And) 
+          | matches!(op, &BinaryOperator::KeywordAnd)
+        {
+          if !left.is_truthy() 
+          {
+            return Ok(Value::Bool(false));
+          }
         }
 
-        return a;
+        if matches!(op, &BinaryOperator::Or)
+          | matches!(op, &BinaryOperator::KeywordOr) 
+        {
+          if left.is_truthy() 
+          {
+            return Ok(Value::Bool(true));
+          }
+        }
+
+        let right = self.eval_expr(right)?;
+        Ok(self.eval_binary(op, left, right)?)
       },
 
       Expr::Call { callee, args } => 
@@ -436,7 +458,231 @@ impl Interpreter
             })
           }
         } 
-      }
+      },
+
+      BinaryOperator::Assign => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) => 
+          {
+            return Ok(Value::Number(right));
+          },
+
+          (Value::Bool(left), Value::Bool(right)) => 
+          {
+            return Ok(Value::Bool(right));
+          },
+
+          (Value::String(left), Value::String(right)) => 
+          {
+            return Ok(Value::String(right));
+          },
+
+          (Value::Array(left), Value::Array(right)) => 
+          {
+            return Ok(Value::Array(right));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::TypeMismatch 
+            { 
+              expected: left.type_name(), 
+              found:  right.type_name(),
+            });
+          }
+        }
+      },
+
+      BinaryOperator::MinusEqual => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) => 
+          {
+            return Ok(Value::Number(left - right));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::TypeMismatch 
+            { 
+              expected: "Number", 
+              found: right.type_name(), 
+            });
+          },
+        }
+      },
+
+      BinaryOperator::PlusEqual => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) => 
+          {
+            return Ok(Value::Number(left + right));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::TypeMismatch 
+            { 
+              expected: "Number", 
+              found: right.type_name(), 
+            });
+          },
+        }
+      }, 
+
+      BinaryOperator::SlashEqual => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) => 
+          {
+            if right == 0.0 
+            {
+              return Err(InterpreterError::DivideBy0 
+              { 
+                value: left, 
+              })
+            }
+
+            return Ok(Value::Number(left / right));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::TypeMismatch 
+            { 
+              expected: "Number", 
+              found: right.type_name(), 
+            });
+          },
+        }
+      },
+      
+      BinaryOperator::StarEqual => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) => 
+          {
+            return Ok(Value::Number(left * right));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::TypeMismatch 
+            { 
+              expected: "Number", 
+              found: right.type_name(), 
+            });
+          },
+        }
+      },
+      
+      BinaryOperator::PercentEqual => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) => 
+          {
+            return Ok(Value::Number(left % right));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::TypeMismatch 
+            { 
+              expected: "Number", 
+              found: right.type_name(), 
+            });
+          },
+        }
+      },
+
+      BinaryOperator::CaretEqual => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) => 
+          {
+            return Ok(Value::Number(left.powf(right)));
+          },
+
+          (left, right) => 
+          {
+            return Err(InterpreterError::TypeMismatch 
+            { 
+              expected: "Number", 
+              found: right.type_name(), 
+            });
+          },
+        }
+      },
+
+      BinaryOperator::RangeExclusive 
+      | BinaryOperator::RangeInclusive => 
+      {
+        match (left, right) 
+        {
+          (Value::Number(left), Value::Number(right)) => 
+          {
+            if left.fract() != 0.0 || right.fract() != 0.0 
+            {
+              return Err(InterpreterError::NonIntegerRange 
+              { 
+                left, 
+                right 
+              });
+            }
+
+            if left > right 
+            {
+              return Err(InterpreterError::InvalidRange 
+              { 
+                left,
+                right,
+              });
+            }
+
+            let inclusive = matches!(op, &BinaryOperator::RangeInclusive);
+            let mut range = Vec::new();
+            
+            for value in left as i32..=right as i32 
+            {
+              if value == right as i32 && !inclusive 
+              {
+                break;
+              }
+
+              range.push(Value::Number(value as f64));
+            }  
+
+            return Ok(Value::Array(range));
+          }
+
+          (left, right) => 
+          {
+            if matches!(left, Value::Number(_))
+            {
+              return Err(InterpreterError::TypeMismatch 
+              { 
+                expected: "Number", 
+                found: right.type_name(), 
+              });
+            }
+
+            return Err(InterpreterError::TypeMismatch 
+            { 
+              expected: "Number", 
+              found: left.type_name(), 
+            });
+          }
+        }
+      },
       
       _ => 
       {
