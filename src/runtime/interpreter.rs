@@ -1,3 +1,4 @@
+use std::clone;
 use std::collections::HashMap;
 use std::f32::consts::E;
 use std::fmt::format;
@@ -72,6 +73,14 @@ pub enum InterpreterError
 }
 
 type RuntimeError<T> = Result<T, InterpreterError>;
+
+enum ControlFlow 
+{
+  None,
+  Break,
+  Continue,
+  Return(Value),
+}
 
 pub struct Interpreter 
 {
@@ -173,31 +182,12 @@ impl Interpreter
       Expr::Unary { op, expr } => 
       {
         let value = self.eval_expr(expr)?;
-        match op 
-        {
-          UnaryOperator::Negative => 
-          {
-            match value 
-            {
-              Value::Number(n) => Ok(Value::Number(-n)),
-              other => Err(InterpreterError::TypeMismatch 
-              { 
-                expected: "Number", 
-                found: other.type_name(), 
-              })
-            }
-          }, 
-          UnaryOperator::Not | UnaryOperator::KeywordNot => 
-          {
-            Ok(Value::Bool(!value.is_truthy()))
-          },
-        }
+        Ok(self.eval_unary(op, value)?)
       },
 
       Expr::Binary { left, op, right } => 
       {
         let left = self.eval_expr(left)?;
-
 
         if matches!(op, &BinaryOperator::And) 
           | matches!(op, &BinaryOperator::KeywordAnd)
@@ -223,17 +213,41 @@ impl Interpreter
 
       Expr::Call { callee, args } => 
       { 
-
+        Ok(self.eval_expr(expr)?)
       },
 
       Expr::Member { object, property } => 
       { 
-
+        Ok(self.eval_expr(expr)?)
       },
 
       Expr::Index { object, index } => 
       { 
+        Ok(self.eval_expr(expr)?)
+      },
+    }
+  }
 
+  fn eval_unary(&self, op: &UnaryOperator, value: Value) -> RuntimeError<Value>
+  {
+    match op 
+    {
+      UnaryOperator::Negative => 
+      {
+        match value 
+        {
+          Value::Number(n) => Ok(Value::Number(-n)),
+          other => Err(InterpreterError::TypeMismatch 
+          { 
+            expected: "Number", 
+            found: other.type_name(), 
+          })
+        }
+      },
+
+      UnaryOperator::Not | UnaryOperator::KeywordNot => 
+      {
+          Ok(Value::Bool(!value.is_truthy()))
       },
     }
   }
@@ -691,6 +705,105 @@ impl Interpreter
           op: Self::binary_op_to_str(op), 
         })
       }
+    }
+  }
+
+  fn exec_stmt(&mut self, stmt: &Stmt) -> RuntimeError<ControlFlow> 
+  {
+    match stmt 
+    {
+      Stmt::Let { name, var_type, value } => 
+      {
+        let evaluated = if let Some(value) = value 
+        {
+          self.eval_expr(value)?
+        } else 
+        {
+          Value::Void
+        };
+
+        if let Some(declared_type) = var_type 
+        {
+          let actual_type = evaluated.type_name();
+
+          if declared_type != actual_type 
+          {
+            return Err(InterpreterError::TypeMismatch 
+            { 
+              expected: declared_type, 
+              found: actual_type 
+            });
+          }
+        }
+
+        self.set_var(name.clone(), evaluated);
+
+        Ok(ControlFlow::None)
+      },
+
+      Stmt::ExprStmt(expr) => 
+      {
+        
+      },
+
+      Stmt::Return { value } => 
+      {
+
+      },
+
+      Stmt::Break 
+      | Stmt::Continue => 
+      {
+
+      },
+
+      Stmt::If { condition, then_body, else_body } => 
+      {
+
+      },
+
+      Stmt::While { condition, body } => 
+      {
+
+      },
+
+      Stmt::Repeat { count, index_name, body } => 
+      {
+
+      },
+
+      Stmt::Print { text_string, args, new_line } => 
+      {
+
+      }
+    }
+  }
+
+  fn exec_block(&mut self, body: &[Stmt]) -> RuntimeError<ControlFlow> 
+  {
+    for stmt in body 
+    {
+      let result = self.exec_stmt(stmt)?;
+      match result 
+      {
+        ControlFlow::None => continue,
+        ControlFlow::Break  => return Ok(ControlFlow::Break),
+        ControlFlow::Continue => return Ok(ControlFlow::Continue),
+        ControlFlow::Return(Value) => return Ok(ControlFlow::Return(Value)),
+      }  
+    }
+
+    Ok(ControlFlow::None)
+  }
+
+  fn set_var(&mut self, name: String, value: Value) 
+  {
+    if let Some(frame) = self.call_stack.last_mut() 
+    {
+      frame.locals.insert(name, value);
+    } else 
+    {
+      self.global.insert(name, value);
     }
   }
 }
