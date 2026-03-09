@@ -19,8 +19,8 @@ pub enum InterpreterError
   #[error("Type mismatch: expected {expected}, found {found}")]
   TypeMismatch 
   { 
-    expected: &'static str,
-    found: &'static str, 
+    expected: String,
+    found: String, 
   },
 
   #[error("Cant divide {value} by 0, as that would be a mathematical error")]
@@ -69,6 +69,12 @@ pub enum InterpreterError
   {
     left: f64,
     right: f64,
+  },
+
+  #[error("The value {value} needs to be a number withouth a fractional part, and it needs to be positive to be usable in a loop")]  
+  NonValidIntegerCount
+  {
+    value: f64,
   },
 }
 
@@ -239,8 +245,8 @@ impl Interpreter
           Value::Number(n) => Ok(Value::Number(-n)),
           other => Err(InterpreterError::TypeMismatch 
           { 
-            expected: "Number", 
-            found: other.type_name(), 
+            expected: "Number".to_string(), 
+            found: other.type_name().to_string(), 
           })
         }
       },
@@ -330,8 +336,8 @@ impl Interpreter
 
             return Err(InterpreterError::TypeMismatch 
             { 
-              expected: "integer", 
-              found: "float", 
+              expected: "integer".to_string(), 
+              found: "float".to_string(), 
             });
           },
 
@@ -502,8 +508,8 @@ impl Interpreter
           {
             return Err(InterpreterError::TypeMismatch 
             { 
-              expected: left.type_name(), 
-              found:  right.type_name(),
+              expected: left.type_name().to_string(), 
+              found:  right.type_name().to_string(),
             });
           }
         }
@@ -522,8 +528,8 @@ impl Interpreter
           {
             return Err(InterpreterError::TypeMismatch 
             { 
-              expected: "Number", 
-              found: right.type_name(), 
+              expected: "Number".to_string(), 
+              found: right.type_name().to_string(), 
             });
           },
         }
@@ -542,8 +548,8 @@ impl Interpreter
           {
             return Err(InterpreterError::TypeMismatch 
             { 
-              expected: "Number", 
-              found: right.type_name(), 
+              expected: "Number".to_string(), 
+              found: right.type_name().to_string(), 
             });
           },
         }
@@ -570,8 +576,8 @@ impl Interpreter
           {
             return Err(InterpreterError::TypeMismatch 
             { 
-              expected: "Number", 
-              found: right.type_name(), 
+              expected: "Number".to_string(), 
+              found: right.type_name().to_string(), 
             });
           },
         }
@@ -590,8 +596,8 @@ impl Interpreter
           {
             return Err(InterpreterError::TypeMismatch 
             { 
-              expected: "Number", 
-              found: right.type_name(), 
+              expected: "Number".to_string(), 
+              found: right.type_name().to_string(), 
             });
           },
         }
@@ -610,8 +616,8 @@ impl Interpreter
           {
             return Err(InterpreterError::TypeMismatch 
             { 
-              expected: "Number", 
-              found: right.type_name(), 
+              expected: "Number".to_string(), 
+              found: right.type_name().to_string(), 
             });
           },
         }
@@ -630,8 +636,8 @@ impl Interpreter
           {
             return Err(InterpreterError::TypeMismatch 
             { 
-              expected: "Number", 
-              found: right.type_name(), 
+              expected: "Number".to_string(), 
+              found: right.type_name().to_string(), 
             });
           },
         }
@@ -684,15 +690,15 @@ impl Interpreter
             {
               return Err(InterpreterError::TypeMismatch 
               { 
-                expected: "Number", 
-                found: right.type_name(), 
+                expected: "Number".to_string(), 
+                found: right.type_name().to_string(), 
               });
             }
 
             return Err(InterpreterError::TypeMismatch 
             { 
-              expected: "Number", 
-              found: left.type_name(), 
+              expected: "Number".to_string(), 
+              found: left.type_name().to_string(), 
             });
           }
         }
@@ -730,8 +736,8 @@ impl Interpreter
           {
             return Err(InterpreterError::TypeMismatch 
             { 
-              expected: declared_type, 
-              found: actual_type 
+              expected: declared_type.to_string(), 
+              found: actual_type.to_string(), 
             });
           }
         }
@@ -743,39 +749,144 @@ impl Interpreter
 
       Stmt::ExprStmt(expr) => 
       {
-        
+        self.eval_expr(expr)?;
+        Ok(ControlFlow::None)
       },
 
       Stmt::Return { value } => 
       {
+        let value = if let Some(value) = value 
+        {
+          self.eval_expr(value)?
+        } else 
+        {
+          Value::Void
+        };
 
+        Ok(ControlFlow::Return(value))
       },
 
-      Stmt::Break 
-      | Stmt::Continue => 
+      Stmt::Break => 
       {
+        Ok(ControlFlow::Break)
+      },
 
+      Stmt::Continue => 
+      {
+        Ok(ControlFlow::Continue)
       },
 
       Stmt::If { condition, then_body, else_body } => 
       {
+        let condition = self.eval_expr(condition)?.is_truthy();
 
+        Ok(if condition
+        {
+          self.exec_block(then_body)?
+        } else if let Some(else_body) = else_body
+        {
+          self.exec_block(else_body)?
+        } else 
+        {
+          ControlFlow::None
+        })
       },
 
       Stmt::While { condition, body } => 
       {
+        while self.eval_expr(condition)?.is_truthy()
+        {
+          let flow = self.exec_block(body)?;
+          match flow 
+          {
+            ControlFlow::Break => break,
+            ControlFlow::Continue => continue,
+            ControlFlow::Return(value) => {return Ok(ControlFlow::Return(value))},
+            ControlFlow::None => continue,
+          }
+        }
 
+        Ok(ControlFlow::None)
       },
 
       Stmt::Repeat { count, index_name, body } => 
       {
+        let count = self.eval_expr(count)?;
 
+        match count 
+        {
+          Value::Number(value) => 
+          {
+            if value.fract() != 0.0 || value < 0.0
+            {
+              return Err(InterpreterError::NonValidIntegerCount 
+              { 
+                value 
+              })
+            }
+
+            let repeat_count = value as usize;
+
+            for index in 0..repeat_count 
+            {
+              if let Some(name) = index_name 
+              {
+                self.set_var(name.clone(), Value::Number(repeat_count as f64));
+              }
+
+              let flow = self.exec_block(body)?;
+              match flow 
+              {
+                ControlFlow::Break => break,
+                ControlFlow::Continue => continue,
+                ControlFlow::Return(value) => {return Ok(ControlFlow::Return(value))},
+                ControlFlow::None => continue,
+              }
+            }
+          }
+
+          _ => 
+          {
+            return Err(InterpreterError::TypeMismatch 
+            { 
+              expected: "Number".to_string(), 
+              found: count.type_name().to_string(),
+            });
+          }
+        }
+
+        Ok(ControlFlow::None)
       },
 
       Stmt::Print { text_string, args, new_line } => 
       {
+        Ok(ControlFlow::None)
+      },
 
-      }
+      Stmt::Function { name, params, return_type, body } => 
+      {
+        Ok(ControlFlow::None)
+      },
+
+      Stmt::Match { value, arms } => 
+      {
+        Ok(ControlFlow::None)
+      },
+
+      Stmt::Entry { name } => 
+      {
+        Ok(ControlFlow::None)
+      },
+
+      Stmt::Include { path } => 
+      {
+        Ok(ControlFlow::None)
+      },
+
+      Stmt::Try { try_body, on_body } => 
+      {
+        Ok(ControlFlow::None)
+      },
     }
   }
 
