@@ -34,3 +34,18 @@ impl Value
     }
   }
 }
+
+impl std::fmt::Display for Value 
+{
+  fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result
+  {
+    match self
+    {
+      Value::Number(number) => write!(formatter, "{}", number),
+      Value::Bool(boolean) => write!(formatter, "{}", boolean),
+      Value::String(string) => write!(formatter, "{}", string),
+      Value::Array(_) => write!(formatter, "[array]"),
+      Value::Void => write!(formatter, ""),
+    }
+  }
+}
