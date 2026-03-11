@@ -839,7 +839,7 @@ impl Interpreter
               {
                 ControlFlow::Break => break,
                 ControlFlow::Continue => continue,
-                ControlFlow::Return(value) => {return Ok(ControlFlow::Return(value))},
+                ControlFlow::    Return(value) => {return Ok(ControlFlow::Return(value))},
                 ControlFlow::None => continue,
               }
             }
@@ -860,6 +860,12 @@ impl Interpreter
 
       Stmt::Print { text_string, args, new_line } => 
       {
+        let mut  expressions = Vec::new();
+        for arg in args 
+        {
+          expressions.push(self.eval_expr(arg)?);
+        }
+
         Ok(ControlFlow::None)
       },
 
