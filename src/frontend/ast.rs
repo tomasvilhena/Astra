@@ -37,7 +37,6 @@ pub enum Expr
     object: Box<Expr>,
     index: Box<Expr>,
   },
-
 }
 
 #[derive(Debug, Clone)]
@@ -53,19 +52,12 @@ pub enum Pattern
 #[derive(Debug, Clone)]
 pub enum BinaryOperator
 {
-  Assign,       // =
   Plus,         // +
   Minus,        // -
   Star,         // *
   Slash,        // /
   Percent,      // %
   Caret,        // ^
-  PlusEqual,    // +=
-  MinusEqual,   // -=
-  StarEqual,    // *=
-  SlashEqual,   // /=
-  PercentEqual, // %=
-  CaretEqual,   // ^=
   
   // Comparison
   Equal,        // ==
@@ -89,10 +81,30 @@ pub enum BinaryOperator
 }
 
 #[derive(Debug, Clone)]
-pub enum UnaryOperator {
+pub enum UnaryOperator 
+{
   Negative,   // -
   Not,        // !
   KeywordNot, // NOT
+}
+
+#[derive(Debug, Clone)]
+pub enum AssignOperator 
+{
+  Assign,       // =
+  PlusAssign,   // +=
+  MinusAssign,  // -=
+  StarAssign,   // *=
+  SlashAssign,  // /=
+  PercentAssign,// %=
+  CaretAssign,  // ^=
+}
+
+#[derive(Debug, Clone)]
+pub enum AssignTarget 
+{
+  Variable(String),
+  Index {object: Expr, index: Expr},
 }
 
 #[derive(Debug, Clone)]
@@ -170,5 +182,12 @@ pub enum Stmt//statments
   {
     try_body: Vec<Stmt>,
     on_body: Vec<Stmt>,
+  },
+
+  Assign 
+  {
+    target: AssignTarget,
+    op: AssignOperator,
+    value: Expr
   }
 }

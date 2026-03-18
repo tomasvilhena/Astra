@@ -1,4 +1,6 @@
-use super::ast::{BinaryOperator, Expr, Stmt, UnaryOperator, Pattern};
+use crate::frontend::ast::AssignTarget;
+
+use super::ast::{BinaryOperator, Expr, Stmt, UnaryOperator, Pattern, AssignOperator};
 use super::lexer::{Token, TokenKind};
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
@@ -66,6 +68,13 @@ pub enum ParseError
   #[diagnostic(code(parser::include_not_in_header))]
   IncludeNotInHeader {
     #[label("include is only valid in the header section")]
+    span: SourceSpan,
+  },
+
+  #[error("invalid assignment target")]
+  #[diagnostic(code(interpreter::invalid_assignment_target))]
+  InvalidAssignmentTarget {
+    #[label("left side of assignment must be a variable or array index")]
     span: SourceSpan,
   },
 }
@@ -220,20 +229,12 @@ impl Parser
   {
     match token 
     {
-      // Assignment & arithmetic assignment
-      TokenKind::Assign => Some(BinaryOperator::Assign),
       TokenKind::Plus => Some(BinaryOperator::Plus),
       TokenKind::Minus => Some(BinaryOperator::Minus),
       TokenKind::Star => Some(BinaryOperator::Star),
       TokenKind::Slash => Some(BinaryOperator::Slash),
       TokenKind::Percent => Some(BinaryOperator::Percent),
       TokenKind::Caret => Some(BinaryOperator::Caret),
-      TokenKind::PlusEqual => Some(BinaryOperator::PlusEqual),
-      TokenKind::MinusEqual => Some(BinaryOperator::MinusEqual),
-      TokenKind::StarEqual => Some(BinaryOperator::StarEqual),
-      TokenKind::SlashEqual => Some(BinaryOperator::SlashEqual),
-      TokenKind::PercentEqual => Some(BinaryOperator::PercentEqual),
-      TokenKind::CaretEqual => Some(BinaryOperator::CaretEqual),
       
       // Comparisons
       TokenKind::Equal => Some(BinaryOperator::Equal),
@@ -366,16 +367,7 @@ impl Parser
   
   pub fn get_binding_power(op: &TokenKind) -> Option<(u8, u8)> {
     match op 
-    {
-      // Assignment (right-associative)
-      TokenKind::Assign
-      | TokenKind::PlusEqual
-      | TokenKind::MinusEqual
-      | TokenKind::StarEqual
-      | TokenKind::SlashEqual
-      | TokenKind::PercentEqual
-      | TokenKind::CaretEqual => Some((1, 0)),
-      
+    { 
       // Logical OR
       TokenKind::Or | TokenKind::KeywordOr => Some((2, 3)),
       
@@ -1019,6 +1011,45 @@ impl Parser
       body: body,
     })
   }
+
+  fn parse_assign_stmt(&mut self) -> ParseResult<Stmt>
+  {
+    let left_span = self.peek_or_eof("assignemnt Operator")?.span;
+    
+    let left = 
+    {
+      let base = self.parse_primary()?;
+      self.parse_postfix(base)?
+    };
+
+    let target = match left 
+    {
+      Expr::Identifier(name) => AssignTarget::Variable(name),
+      Expr::Index { object, index } => AssignTarget::Index { object: *object, index: *index },
+      _ => return Err(ParseError::InvalidAssignmentTarget 
+      { 
+        span: left_span,
+      }),
+    };
+
+    let op_token = self.advance_or_eof("assignment operator")?;
+    let op = match op_token.token_kind
+    {
+      TokenKind::Assign => AssignOperator::Assign,
+      TokenKind::PlusEqual => AssignOperator::PlusAssign,
+      TokenKind::MinusEqual => AssignOperator::MinusAssign,
+      TokenKind::StarEqual => AssignOperator::StarAssign,
+      TokenKind::SlashEqual => AssignOperator::SlashAssign,
+      TokenKind::PercentEqual => AssignOperator::PercentAssign,
+      TokenKind::CaretEqual => AssignOperator::CaretAssign,
+      _ => unreachable!(),
+    };
+
+    let value = self.parse_expr(0)?;
+    self.expect(TokenKind::Semicolon)?;
+
+    Ok(Stmt::Assign { target, op, value })
+  }
         
   fn parse_stmt(&mut self) -> ParseResult<Stmt> 
   {
@@ -1040,6 +1071,25 @@ impl Parser
       
       _ => 
       {
+        if token.token_kind == TokenKind::Identifier 
+        {
+          if let Some(next) = self.tokens.get(self.position + 1) 
+          {
+            match next.token_kind
+            {
+              TokenKind::Assign 
+              | TokenKind::PlusEqual
+              | TokenKind::MinusEqual
+              | TokenKind::StarEqual
+              | TokenKind::SlashEqual
+              | TokenKind::PercentEqual
+              | TokenKind::CaretEqual => return self.parse_assign_stmt(),
+
+              _ => {},
+            }
+          }
+        }
+
         let expr = self.parse_expr(0)?;
         self.expect(TokenKind::Semicolon)?;
         Ok(Stmt::ExprStmt(expr))

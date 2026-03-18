@@ -1,14 +1,13 @@
+use std::any::Any;
 use std::clone;
 use std::collections::HashMap;
-use std::f32::consts::E;
 use std::fmt::format;
+use std::thread::current;
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
-
-use crate::frontend::ast::{Expr, Stmt, BinaryOperator, UnaryOperator, Pattern};
+use crate::frontend::ast::{AssignOperator, AssignTarget, BinaryOperator, Expr, Pattern, Stmt, UnaryOperator};
 use crate::frontend::lexer::TokenKind;
 use crate::runtime::value::{self, Value};
-
 
 #[derive(Error, Diagnostic, Debug)]
 pub enum InterpreterError 
@@ -76,9 +75,40 @@ pub enum InterpreterError
   {
     value: f64,
   },
+
+  #[error("The amout of provided arguments falls short of the expected amout of arguments by the method")]  
+  InvalidAmoutOfArguments,
+
+  #[error("The operator {op} is not allowed between type {left} and type {right}")]  
+  NonAllowedAssignOp
+  {
+    op: &'static str,
+    left: &'static str,
+    right: &'static str,
+  },
+
+  #[error("The operator {op} does not work for the type {left}")]  
+  UnsupportedAssignOp
+  {
+    op: &'static str,
+    left: &'static str,
+  },
+
+
+  #[error("The operator {op} does not allow the multiplication of a string by a number with a fractional part")]  
+  InvalidMultiplyAssignValue
+  {
+    op: &'static str,
+  },
+
+  #[error("The target is invalid in an assignment operation")]  
+  InvalidAssignmentTarget,
+
+  #[error("The provided index is out of bounds or not a valid index")]  
+  NonValidIndex 
 }
 
-type RuntimeError<T> = Result<T, InterpreterError>;
+pub type RuntimeError<T> = Result<T, InterpreterError>;
 
 enum ControlFlow 
 {
@@ -120,6 +150,12 @@ impl Interpreter
     }
   }
 
+  pub fn run(&mut self, program: &[Stmt]) -> RuntimeError<()> 
+  {
+    self.exec_block(program)?;
+    Ok(())
+  }
+
   fn binary_op_to_str(op: &BinaryOperator) -> &'static str 
   {
     match op 
@@ -140,13 +176,6 @@ impl Interpreter
       BinaryOperator::Or => "||",
       BinaryOperator::KeywordAnd => "AND",
       BinaryOperator::KeywordOr => "OR",
-      BinaryOperator::Assign => "=",
-      BinaryOperator::PlusEqual => "+=",
-      BinaryOperator::MinusEqual => "-=",
-      BinaryOperator::StarEqual => "*=",
-      BinaryOperator::SlashEqual => "/=",
-      BinaryOperator::PercentEqual => "%=",
-      BinaryOperator::CaretEqual => "^=",
       BinaryOperator::RangeExclusive => "..",
       BinaryOperator::RangeInclusive => "..=",
       BinaryOperator::Not => "!",
@@ -480,169 +509,6 @@ impl Interpreter
         } 
       },
 
-      BinaryOperator::Assign => 
-      {
-        match (left, right) 
-        {
-          (Value::Number(left), Value::Number(right)) => 
-          {
-            return Ok(Value::Number(right));
-          },
-
-          (Value::Bool(left), Value::Bool(right)) => 
-          {
-            return Ok(Value::Bool(right));
-          },
-
-          (Value::String(left), Value::String(right)) => 
-          {
-            return Ok(Value::String(right));
-          },
-
-          (Value::Array(left), Value::Array(right)) => 
-          {
-            return Ok(Value::Array(right));
-          },
-
-          (left, right) => 
-          {
-            return Err(InterpreterError::TypeMismatch 
-            { 
-              expected: left.type_name().to_string(), 
-              found:  right.type_name().to_string(),
-            });
-          }
-        }
-      },
-
-      BinaryOperator::MinusEqual => 
-      {
-        match (left, right) 
-        {
-          (Value::Number(left), Value::Number(right)) => 
-          {
-            return Ok(Value::Number(left - right));
-          },
-
-          (left, right) => 
-          {
-            return Err(InterpreterError::TypeMismatch 
-            { 
-              expected: "Number".to_string(), 
-              found: right.type_name().to_string(), 
-            });
-          },
-        }
-      },
-
-      BinaryOperator::PlusEqual => 
-      {
-        match (left, right) 
-        {
-          (Value::Number(left), Value::Number(right)) => 
-          {
-            return Ok(Value::Number(left + right));
-          },
-
-          (left, right) => 
-          {
-            return Err(InterpreterError::TypeMismatch 
-            { 
-              expected: "Number".to_string(), 
-              found: right.type_name().to_string(), 
-            });
-          },
-        }
-      }, 
-
-      BinaryOperator::SlashEqual => 
-      {
-        match (left, right) 
-        {
-          (Value::Number(left), Value::Number(right)) => 
-          {
-            if right == 0.0 
-            {
-              return Err(InterpreterError::DivideBy0 
-              { 
-                value: left, 
-              })
-            }
-
-            return Ok(Value::Number(left / right));
-          },
-
-          (left, right) => 
-          {
-            return Err(InterpreterError::TypeMismatch 
-            { 
-              expected: "Number".to_string(), 
-              found: right.type_name().to_string(), 
-            });
-          },
-        }
-      },
-      
-      BinaryOperator::StarEqual => 
-      {
-        match (left, right) 
-        {
-          (Value::Number(left), Value::Number(right)) => 
-          {
-            return Ok(Value::Number(left * right));
-          },
-
-          (left, right) => 
-          {
-            return Err(InterpreterError::TypeMismatch 
-            { 
-              expected: "Number".to_string(), 
-              found: right.type_name().to_string(), 
-            });
-          },
-        }
-      },
-      
-      BinaryOperator::PercentEqual => 
-      {
-        match (left, right) 
-        {
-          (Value::Number(left), Value::Number(right)) => 
-          {
-            return Ok(Value::Number(left % right));
-          },
-
-          (left, right) => 
-          {
-            return Err(InterpreterError::TypeMismatch 
-            { 
-              expected: "Number".to_string(), 
-              found: right.type_name().to_string(), 
-            });
-          },
-        }
-      },
-
-      BinaryOperator::CaretEqual => 
-      {
-        match (left, right) 
-        {
-          (Value::Number(left), Value::Number(right)) => 
-          {
-            return Ok(Value::Number(left.powf(right)));
-          },
-
-          (left, right) => 
-          {
-            return Err(InterpreterError::TypeMismatch 
-            { 
-              expected: "Number".to_string(), 
-              found: right.type_name().to_string(), 
-            });
-          },
-        }
-      },
-
       BinaryOperator::RangeExclusive 
       | BinaryOperator::RangeInclusive => 
       {
@@ -753,6 +619,59 @@ impl Interpreter
         Ok(ControlFlow::None)
       },
 
+      Stmt::Assign { target, op, value } => 
+      {
+        let right = self.eval_expr(value)?;
+
+        match target 
+        {
+          AssignTarget::Variable(name) => 
+          {
+            let current = self.get_var(name)?;
+            let new_value= self.apply_assign_op(op, current.clone(), right)?;
+            self.assign_var(name, new_value)?;
+          },
+
+          AssignTarget::Index { object, index } => 
+          {
+            let array_name = match object 
+            {
+              Expr::Identifier(name) => name,
+              _ => return Err(InterpreterError::InvalidAssignmentTarget),
+            };
+
+            let mut array_items = match self.get_var(array_name)? 
+            {
+              Value::Array(value) => value,
+              other => return Err(InterpreterError::TypeMismatch 
+              { 
+                expected: "array".to_string(), 
+                found: other.type_name().to_string(), 
+              }),
+            };
+
+            let index = match self.eval_expr(index)? 
+            {
+              Value::Number(number) if number.fract() == 0.0 && number >= 0.0 => number as usize,
+              _ => return Err(InterpreterError::NonValidIndex),
+            };
+
+            if index >= array_items.len()
+            {
+              return Err(InterpreterError::NonValidIndex);
+            }
+
+            let current_value = array_items[index].clone();
+            let new_value = self.apply_assign_op(op, current_value, right)?;
+            array_items[index] = new_value;
+
+            self.assign_var(array_name, Value::Array(array_items))?;
+          },
+        } 
+
+        Ok(ControlFlow::None)
+      },
+
       Stmt::Return { value } => 
       {
         let value = if let Some(value) = value 
@@ -827,7 +746,7 @@ impl Interpreter
 
             let repeat_count = value as usize;
 
-            for index in 0..repeat_count 
+            for _ in 0..repeat_count 
             {
               if let Some(name) = index_name 
               {
@@ -864,6 +783,49 @@ impl Interpreter
         for arg in args 
         {
           expressions.push(self.eval_expr(arg)?);
+        }
+
+        let text_string = if let Some(text_string) = text_string 
+        {
+          text_string
+        } else 
+        {
+          ""
+        };
+
+        let mut seen_open_bracket = false;
+        let mut arg_iter = expressions.iter();
+        let mut output = String::new();
+
+        for character in text_string.chars() 
+        {
+          if character == '{' 
+          {
+            seen_open_bracket = true;
+            continue;
+          }
+
+          if character == '}' && seen_open_bracket 
+          {
+            match arg_iter.next()
+            {
+              Some(value) => output.push_str(&value.to_string()),
+              None => return Err(InterpreterError::InvalidAmoutOfArguments)
+            }
+
+            seen_open_bracket = false;
+            continue;
+          }
+
+          output.push(character);
+        }
+
+        if *new_line 
+        {
+          println!("{output}");
+        } else 
+        {
+          print!("{output}");
         }
 
         Ok(ControlFlow::None)
@@ -906,7 +868,7 @@ impl Interpreter
         ControlFlow::None => continue,
         ControlFlow::Break  => return Ok(ControlFlow::Break),
         ControlFlow::Continue => return Ok(ControlFlow::Continue),
-        ControlFlow::Return(Value) => return Ok(ControlFlow::Return(Value)),
+        ControlFlow::Return(value) => return Ok(ControlFlow::Return(value)),
       }  
     }
 
@@ -921,6 +883,248 @@ impl Interpreter
     } else 
     {
       self.global.insert(name, value);
+    }
+  }
+
+  fn get_var(&mut self, name: &str) -> RuntimeError<Value>
+  {
+    if let Some(frame) = self.call_stack.last() 
+    {
+      if let Some(value) = frame.locals.get(name) 
+      {
+        return Ok(value.clone());
+      }
+    }
+
+    self.global
+      .get(name)
+      .cloned()
+      .ok_or
+      (
+        InterpreterError::UndefinedVariable 
+        { 
+          name: name.to_string(),
+        }
+      )
+  }
+
+  fn assign_var(&mut self, name: &str, value: Value) -> RuntimeError<()>
+  {
+    if let Some(frame) = self.call_stack.last_mut() 
+    {
+      if frame.locals.contains_key(name) 
+      {
+        frame.locals.insert(name.to_string(), value);
+        return Ok(());
+      }
+    }
+
+    if self.global.contains_key(name) 
+    {
+      self.global.insert(name.to_string(), value);
+      return Ok(());
+    }
+
+    Err(InterpreterError::UndefinedVariable 
+    { 
+      name: name.to_string(), 
+    })
+  }
+
+  fn apply_assign_op(&self, op: &AssignOperator, current: Value, right: Value) -> RuntimeError<Value>
+  {
+    match op 
+    {
+      AssignOperator::Assign => 
+      {
+        match (current, right) 
+        {
+          (Value::Number(current), Value::Number(right)) => 
+          {
+            Ok(Value::Number(right))
+          },
+
+          (Value::String(current), Value::String(right)) => 
+          {
+            Ok(Value::String(right))
+          },
+
+          (Value::Bool(current), Value::Bool(right)) => 
+          {
+            Ok(Value::Bool(right))
+          },
+
+          (Value::Array(current), Value::Array(right)) => 
+          {
+            Ok(Value::Array(right))
+          },
+
+          (current, right) => 
+          {
+            Err(InterpreterError::NonAllowedAssignOp
+            { 
+              op: "=", 
+              left: current.type_name(), 
+              right: right.type_name(), 
+            })
+          },
+
+        }
+      },
+
+      AssignOperator::CaretAssign => 
+      {
+        match (current, right) 
+        {
+          (Value::Number(current), Value::Number(right)) => 
+          {
+            Ok(Value::Number(current.powf(right)))
+          },
+
+          (current, right) => 
+          {
+            Err(InterpreterError::UnsupportedAssignOp 
+            { 
+              op: "^=", 
+              left: current.type_name(), 
+            })
+          },
+        }
+      },
+
+      AssignOperator::MinusAssign => 
+      {
+        match (current, right) 
+        {
+          (Value::Number(current), Value::Number(right)) => 
+          {
+            Ok(Value::Number(current - right))
+          },
+
+          (current, right) => 
+          {
+            Err(InterpreterError::UnsupportedAssignOp 
+            { 
+              op: "-=", 
+              left: current.type_name(), 
+            })
+          },
+        }
+      },
+
+      AssignOperator::PercentAssign => 
+      {
+        match (current, right) 
+        {
+          (Value::Number(current), Value::Number(right)) => 
+          {
+            if right == 0.0 
+            {
+              return Err(InterpreterError::DivideBy0 
+              { 
+                value: current, 
+              });
+            }
+
+            Ok(Value::Number(current % right))
+          },
+
+          (current, right) => 
+          {
+            Err(InterpreterError::UnsupportedAssignOp 
+            { 
+              op: "%=", 
+              left: current.type_name(), 
+            })
+          },
+        }
+      },
+
+      AssignOperator::PlusAssign => 
+      {
+        match (current, right) 
+        {
+          (Value::Number(current), Value::Number(right)) => 
+          {
+            Ok(Value::Number(current + right))
+          },
+
+          (Value::String(current), Value::String(right)) => 
+          {
+            Ok(Value::String(current + &right))
+          },
+
+          (current, right) => 
+          {
+            Err(InterpreterError::UnsupportedAssignOp 
+            { 
+              op: "+=", 
+              left: current.type_name(), 
+            })
+          },
+        }
+      },
+
+      AssignOperator::SlashAssign => 
+      {
+        match (current, right) 
+        {
+          (Value::Number(current), Value::Number(right)) => 
+          {
+            if right == 0.0 
+            {
+              return Err(InterpreterError::DivideBy0 
+              { 
+                value: current, 
+              });
+            }
+
+            Ok(Value::Number(current / right))
+          },
+
+          (current, right) => 
+          {
+            Err(InterpreterError::UnsupportedAssignOp 
+            { 
+              op: "/=", 
+              left: current.type_name(), 
+            })
+          },
+        }
+      },
+
+      AssignOperator::StarAssign => 
+      {
+        match (current, right) 
+        {
+          (Value::Number(current), Value::Number(right)) => 
+          {
+            Ok(Value::Number(current * right))
+          },
+
+          (Value::String(current), Value::Number(right)) => 
+          {
+            if right.fract() != 0.0 || right < 0.0
+            {
+              return Err(InterpreterError::InvalidMultiplyAssignValue 
+              { 
+                op: "*=" 
+              });
+            }
+
+            Ok(Value::String(current.repeat(right as usize)))
+          },
+
+          (current, right) => 
+          {
+            Err(InterpreterError::UnsupportedAssignOp 
+            { 
+              op: "*=", 
+              left: current.type_name(), 
+            })
+          },
+        }
+      },
     }
   }
 }
