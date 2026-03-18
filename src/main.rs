@@ -3,6 +3,7 @@ mod runtime;
 use frontend::lexer::Lexer;
 use frontend::parser::Parser;
 use miette::{NamedSource, Result};
+use runtime::interpreter::Interpreter;
 
 fn main() -> Result<()> 
 {
@@ -266,82 +267,32 @@ fn operators_demo(): void
 
   "#;
 
-    //let mut lexer = Lexer::new(source);
-    //let tokens = lexer.tokenize();
-
-    // for token in tokens
-    // {
-    //   println!("{:?} => {}", token.token_kind, token.lexed_value);
-    // }
-
   let code = r#"
     entry "main";
-    // 1. Test Variables (Let Stmt)
-
-    let a: number = 10;
+    let a: number = 10; 
     let b: number = 5;
     let name: string = "Astra";
-
-    foo();
-    foo(23);
-    foo(23+2);
-    foo(a);
-    foo(a);
-
-    // 2. Test Printing (Print Stmt) with arguments
-
     print("Testing parser for: ");
     println("{}", name);
-
-    // 3. Test Expressions & Math
-
     let sum: number = a + b * 2; 
     println("10 + 5 * 2 = {}", sum);
-
-    // 4. Test Logic & Boolean
-
     let check: bool = sum > 15;
     println("Is sum > 15? {}", check);
 
-    // 5. Test Expressions as Statements (Assignments)
-    // (We treat assignment as an expression statement in this language)
-
-    a = 99; 
-    println("New a: {}", a);
-
     if (a == 0) {
-      print("Yay");
-    } else if (a == 99) 
+      print("0");
+    } else if (a == 10) 
     {
-      print("yahoooo");
+      println("10 = a, because a = 10");
     }
 
-    let a: string = "5";
+    let a: number = 0;
 
-    fn loops_demo(name: string): void
+    while (true) 
     {
-      if (a == 0) {
-        print("Yay");
-      } else if (a == 99) 
-      {
-        print("yahoooo");
-      }
-
-      return a;
-      return;
-    }
-
-    while 
-    {
-    
-    }
-
-    while
-    {
-
+      println("1");
     }
   "#;
-
   let mut lexer = Lexer::new(code);
 
   match lexer.tokenize() 
@@ -354,7 +305,9 @@ fn operators_demo(): void
       {
         Ok(ast) => 
         {
-          print!("{:?}", ast);
+          //print!("{:?}", ast);
+          let mut interpreter = Interpreter::new();
+          interpreter.run(&ast).map_err(miette::Report::new)?;
           Ok(())
         }
 
