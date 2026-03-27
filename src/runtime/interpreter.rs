@@ -105,7 +105,16 @@ pub enum InterpreterError
   InvalidAssignmentTarget,
 
   #[error("The provided index is out of bounds or not a valid index")]  
-  NonValidIndex 
+  NonValidIndex,
+
+  #[error("The called fucntion {function} does not exist")]  
+  UndefinedCallTarget
+  {
+    function: String,
+  },
+
+  #[error("Invalid call target, expected function identifier")]  
+  InvalidCallTarget,
 }
 
 pub type RuntimeError<T> = Result<T, InterpreterError>;
@@ -248,6 +257,29 @@ impl Interpreter
 
       Expr::Call { callee, args } => 
       { 
+        let callee_name = match callee.as_ref()
+        {
+          Expr::Identifier(name) => 
+          {
+            name
+          }
+
+          _ => 
+          {
+            return Err(InterpreterError::InvalidCallTarget);
+          }
+        };
+
+        if !self.functions.contains_key(callee_name) 
+        {
+          return Err(InterpreterError::UndefinedCallTarget 
+          { 
+            function: callee_name.to_string(), 
+          })
+        }
+
+        
+
         Ok(self.eval_expr(expr)?)
       },
 
@@ -746,11 +778,11 @@ impl Interpreter
 
             let repeat_count = value as usize;
 
-            for _ in 0..repeat_count 
+            for index  in 0..repeat_count 
             {
               if let Some(name) = index_name 
               {
-                self.set_var(name.clone(), Value::Number(repeat_count as f64));
+                self.set_var(name.clone(), Value::Number(index as f64));
               }
 
               let flow = self.exec_block(body)?;
@@ -833,6 +865,22 @@ impl Interpreter
 
       Stmt::Function { name, params, return_type, body } => 
       {
+        let mut param_names: Vec<String> = Vec::new();
+
+        for (param_name, _param_type) in params 
+        {
+          param_names.push(param_name.to_string());
+        }
+
+        self.functions.insert(
+          name.clone(), 
+          FunctionDef 
+          { 
+            params: param_names, 
+            body: body.clone(), 
+          }
+        );
+
         Ok(ControlFlow::None)
       },
 

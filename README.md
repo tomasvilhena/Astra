@@ -1,7 +1,7 @@
 # Astra
 Programming Language
 
-## Project Taskboard
+## Project Task Board
 
 - [x] Runtime module exported (`src/runtime/mod.rs`)
 - [x] `Value` enum migrated to `Number` model (`Number`, `Bool`, `String`, `Array`, `Void`) (`src/runtime/value.rs`)
@@ -36,6 +36,6 @@ Programming Language
 - [ ] Register function declarations from AST (`src/runtime/interpreter.rs`)
 - [ ] Push/pop call frames on call (`src/runtime/interpreter.rs`)
 - [ ] Bind arguments to parameters + arity checks (`src/runtime/interpreter.rs`)
-- [ ] Execute interpreter after parse success (instead of only printing AST) (`src/main.rs`)
+- [X] Execute interpreter after parse success (instead of only printing AST) (`src/main.rs`)
 - [ ] Wrap runtime errors with `miette::Report` in main flow (`src/main.rs`)
-- [ ] Keep demo samples aligned with currently implemented runtime features (`src/main.rs`, `docs/SYNTAX/example1.astra`)
+- [ ] Keep demo samples aligned with currently implemented runtime features (`src/main.rs`, `docs/SYNTAX/example1.astra`)  
