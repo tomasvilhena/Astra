@@ -1,38 +1,38 @@
 #[derive(Debug, Clone)]
-pub enum Expr 
+pub enum Expr
 {
   Number(f64),
   Bool(bool),
   Identifier(String),
   String(String),
   ArrayLiteral(Vec<Expr>),
-  
-  Unary 
+
+  Unary
   {
     op: UnaryOperator,
     expr: Box<Expr>,
   },
-  
-  Binary 
+
+  Binary
   {
     left: Box<Expr>,
     op: BinaryOperator,
     right: Box<Expr>,
   },
-  
-  Call 
+
+  Call
   {
     callee: Box<Expr>,
     args: Vec<Expr>,
   },
 
-  Member 
+  Member
   {
     object: Box<Expr>,
     property: String,
   },
 
-  Index 
+  Index
   {
     object: Box<Expr>,
     index: Box<Expr>,
@@ -40,7 +40,7 @@ pub enum Expr
 }
 
 #[derive(Debug, Clone)]
-pub enum Pattern 
+pub enum Pattern
 {
   Number(f64),
   Bool(bool),
@@ -58,7 +58,7 @@ pub enum BinaryOperator
   Slash,        // /
   Percent,      // %
   Caret,        // ^
-  
+
   // Comparison
   Equal,        // ==
   NotEqual,     // !=
@@ -66,7 +66,7 @@ pub enum BinaryOperator
   GreaterEqual, // >=
   Less,         // <
   LessEqual,    // <=
-  
+
   // Logical
   And,        // &&
   Or,         // ||
@@ -74,14 +74,14 @@ pub enum BinaryOperator
   KeywordAnd, // AND
   KeywordOr,  // OR
   KeywordNot, // NOT
-  
+
   // Ranges
   RangeExclusive, // ..
   RangeInclusive, // ..=
 }
 
 #[derive(Debug, Clone)]
-pub enum UnaryOperator 
+pub enum UnaryOperator
 {
   Negative,   // -
   Not,        // !
@@ -89,7 +89,7 @@ pub enum UnaryOperator
 }
 
 #[derive(Debug, Clone)]
-pub enum AssignOperator 
+pub enum AssignOperator
 {
   Assign,       // =
   PlusAssign,   // +=
@@ -101,7 +101,7 @@ pub enum AssignOperator
 }
 
 #[derive(Debug, Clone)]
-pub enum AssignTarget 
+pub enum AssignTarget
 {
   Variable(String),
   Index {object: Expr, index: Expr},
@@ -110,49 +110,49 @@ pub enum AssignTarget
 #[derive(Debug, Clone)]
 pub enum Stmt//statments
 {
-  Let 
+  Let
   {
     name: String,
     var_type: Option<String>,
     value: Option<Expr>,
   },
-  
-  Function 
+
+  Function
   {
     name: String,
     params: Vec<(String, String)>,
     return_type: Option<String>,
     body: Vec<Stmt>,
   },
-  
+
   ExprStmt(Expr),
-  
-  Print 
+
+  Print
   {
     text_string: Option<String>,
     args: Vec<Expr>,
     new_line: bool,
   },
-  
-  If 
+
+  If
   {
     condition: Expr,
     then_body: Vec<Stmt>,
     else_body: Option<Vec<Stmt>>,
   },
-  
-  Return 
+
+  Return
   {
     value: Option<Expr>,
   },
-  
-  While 
+
+  While
   {
     condition: Expr,
     body: Vec<Stmt>,
   },
 
-  Repeat 
+  Repeat
   {
     count: Expr,
     index_name: Option<String>,
@@ -162,29 +162,29 @@ pub enum Stmt//statments
   Break,
   Continue,
 
-  Match 
+  Match
   {
     value: Expr,
     arms: Vec<(Pattern, Vec<Stmt>)>,
   },
 
-  Entry 
+  Entry
   {
     name: String,
   },
 
-  Include 
+  Include
   {
     path: String,
   },
 
-  Try 
+  Try
   {
     try_body: Vec<Stmt>,
     on_body: Vec<Stmt>,
   },
 
-  Assign 
+  Assign
   {
     target: AssignTarget,
     op: AssignOperator,

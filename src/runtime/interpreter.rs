@@ -2,155 +2,15 @@ use std::any::Any;
 use std::clone;
 use std::collections::HashMap;
 use std::fmt::format;
+use std::sync::mpsc::Receiver;
 use std::thread::current;
 use miette::{Diagnostic, SourceSpan};
 use thiserror::Error;
 use crate::frontend::ast::{AssignOperator, AssignTarget, BinaryOperator, Expr, Pattern, Stmt, UnaryOperator};
 use crate::frontend::lexer::TokenKind;
 use crate::runtime::value::{self, Value};
-
-#[derive(Error, Diagnostic, Debug)]
-pub enum InterpreterError
-{
-  #[error("Undefined variable `{name}`")]
-  UndefinedVariable { name: String },
-
-  #[error("Type mismatch: expected {expected}, found {found}")]
-  TypeMismatch
-  {
-    expected: String,
-    found: String,
-  },
-
-  #[error("Cant divide {value} by 0, as that would be a mathematical error")]
-  DivideBy0
-  {
-    value: f64,
-  },
-
-  #[error("Cant Multiply {text} by a negative number, or 0, as that would result in an unknown string size")]
-  MultiplyStringByInvalidValue
-  {
-    text: String,
-  },
-
-  #[error("Invalid binary operation `{op}` for {left} and {right}")]
-  InvalidBinaryOp
-  {
-    op: &'static str,
-    left: &'static str,
-    right: &'static str,
-  },
-
-  #[error("The operation {op} is not a Valid operation between a value of type {left} and a value of type {right}")]
-  InvalidTypeComparisson
-  {
-    op: &'static str,
-    left: &'static str,
-    right: &'static str,
-  },
-
-  #[error("This character is not a Valid binary operator")]
-  UnsupportedBinaryOp
-  {
-    op: &'static str,
-  },
-
-  #[error("The range provided would result in a invalid range, as {left} is smaller or equal to {right}, resulting in a range of 0 or smaller")]
-  InvalidRange
-  {
-    left: f64,
-    right: f64,
-  },
-
-  #[error("The values of {left} and {right} must both be integers")]
-  NonIntegerRange
-  {
-    left: f64,
-    right: f64,
-  },
-
-  #[error("The value {value} needs to be a number withouth a fractional part, and it needs to be positive to be usable in a loop")]
-  NonValidIntegerCount
-  {
-    value: f64,
-  },
-
-  #[error("The amout of provided arguments falls short of the expected amout of arguments by the method")]
-  InvalidAmoutOfArguments,
-
-  #[error("The operator {op} is not allowed between type {left} and type {right}")]
-  NonAllowedAssignOp
-  {
-    op: &'static str,
-    left: &'static str,
-    right: &'static str,
-  },
-
-  #[error("The operator {op} does not work for the type {left}")]
-  UnsupportedAssignOp
-  {
-    op: &'static str,
-    left: &'static str,
-  },
-
-
-  #[error("The operator {op} does not allow the multiplication of a string by a number with a fractional part")]
-  InvalidMultiplyAssignValue
-  {
-    op: &'static str,
-  },
-
-  #[error("The target is invalid in an assignment operation")]
-  InvalidAssignmentTarget,
-
-  #[error("The provided index is out of bounds or not a valid index")]
-  NonValidIndex,
-
-  #[error("The called fucntion {function} does not exist")]
-  UndefinedCallTarget
-  {
-    function: String,
-  },
-
-  #[error("Invalid call target, expected function identifier")]
-  InvalidCallTarget,
-
-  #[error("The called fucntion {function} does not accept more then {amount_of_args} arguments")]
-  TooManyArguments
-  {
-    function: String,
-    amount_of_args: usize,
-  },
-
-  #[error("The called function {function} does not accept less then {amount_of_args} arguments")]
-  TooFewArguments
-  {
-    function: String,
-    amount_of_args: usize,
-  },
-
-  #[error("The function {function} cannot be exited with the use of break or continue statements")]
-  InvalidEscapeFunctionCall
-  {
-    function: String,
-  },
-
-  #[error("The provided index value {index} cannot be used as index because it {reason}")]
-  InvalidIndexValue
-  {
-    index: f64,
-    reason: &'static str,
-  },
-
-  #[error("The provided index was of value {index},  expected index of type 'Number'")]
-  NonNumberIndexValue
-  {
-    index: &'static str,
-  },
-}
-
-pub type RuntimeError<T> = Result<T, InterpreterError>;
+use crate::runtime::methods;
+use crate::runtime::error::{InterpreterError, RuntimeError};
 
 enum ControlFlow
 {
@@ -194,6 +54,21 @@ impl Interpreter
 
   pub fn run(&mut self, program: &[Stmt]) -> RuntimeError<()>
   {
+    let mut entry_name: Option<String> = None;
+
+    for stmt in program
+    {
+      match stmt
+      {
+        Stmt::Function { name, params, return_type, body } =>
+        {
+          self.functions.insert(name.clone(), FunctionDef { params, body});
+        },
+        Stmt::Entry { name } => {},
+        _ => {},
+      }
+    }
+
     self.exec_block(program)?;
     Ok(())
   }
@@ -290,81 +165,111 @@ impl Interpreter
 
       Expr::Call { callee, args } =>
       {
-        let callee_name = match callee.as_ref()
+        match callee.as_ref()
         {
           Expr::Identifier(name) =>
           {
-            name
-          }
+            let (params, body)  = if let Some(function) = self.functions.get(name)
+            {
+              (function.params.clone(), function.body.clone())
+            } else
+            {
+              return Err(InterpreterError::UndefinedCallTarget
+              {
+                function: name.clone(),
+              })
+            };
+
+            let mut evaluated_args: Vec<Value> = Vec::new();
+            for arg in args
+            {
+              evaluated_args.push(self.eval_expr(arg)?);
+            }
+
+            if evaluated_args.len() > params.len()
+            {
+              return Err(InterpreterError::TooManyArguments
+              {
+                function: name.clone(),
+                amount_of_args: params.len()
+              });
+            } else if evaluated_args.len() < params.len()
+            {
+              return Err(InterpreterError::TooFewArguments
+              {
+                function: name.clone(),
+                amount_of_args: params.len()
+              });
+            }
+
+            let mut frame = CallFrame {locals: HashMap::new()};
+
+            for (index, param) in params.iter().enumerate()
+            {
+              frame.locals.insert(param.clone(), evaluated_args[index].clone());
+            }
+
+            self.call_stack.push(frame);
+            let flow = self.exec_block(&body);
+            self.call_stack.pop();
+            let flow = flow?;
+
+            match flow
+            {
+              ControlFlow::Return(value) => Ok(value),
+
+              ControlFlow::None => Ok(Value::Void),
+
+              ControlFlow::Break
+              | ControlFlow::Continue => return Err(InterpreterError::InvalidEscapeFunctionCall
+              {
+                function: name.clone(),
+              }),
+            }
+          },
+
+          Expr::Member { object, property } =>
+          {
+            let mut evaluated_args: Vec<Value> = Vec::new();
+            for arg in args
+            {
+              evaluated_args.push(self.eval_expr(arg)?);
+            }
+
+            match object.as_ref()
+            {
+              Expr::Identifier(name) =>
+              {
+                let mut receiver = self.eval_expr(object)?;
+                let result = methods::call_method(&mut receiver, property, evaluated_args)?;
+                self.assign_var(name, receiver)?;
+                return Ok(result)
+              },
+
+              _ =>
+              {
+                let mut receiver = self.eval_expr(object)?;
+                let result = methods::call_method(&mut receiver, property, evaluated_args)?;
+                Ok(result)
+              }
+            }
+          },
 
           _ =>
           {
             return Err(InterpreterError::InvalidCallTarget);
           }
-        };
-
-        let (params, body)  = if let Some(function) = self.functions.get(callee_name)
-        {
-          (function.params.clone(), function.body.clone())
-        } else
-        {
-          return Err(InterpreterError::UndefinedCallTarget
-          {
-            function: callee_name.clone(),
-          })
-        };
-
-        let mut evaluated_args: Vec<Value> = Vec::new();
-        for arg in args
-        {
-          evaluated_args.push(self.eval_expr(arg)?);
-        }
-
-        if evaluated_args.len() > params.len()
-        {
-          return Err(InterpreterError::TooManyArguments
-          {
-            function: callee_name.clone(),
-            amount_of_args: params.len()
-          });
-        } else if evaluated_args.len() < params.len()
-        {
-          return Err(InterpreterError::TooFewArguments
-          {
-            function: callee_name.clone(),
-            amount_of_args: params.len()
-          });
-        }
-
-        let mut frame = CallFrame {locals: HashMap::new()};
-
-        for (index, param) in params.iter().enumerate()
-        {
-          frame.locals.insert(param.clone(), evaluated_args[index].clone());
-        }
-
-        self.call_stack.push(frame);
-        let flow = self.exec_block(&body);
-        self.call_stack.pop();
-        let flow = flow?;
-
-        match flow
-        {
-          ControlFlow::Return(value) => Ok(value),
-
-          ControlFlow::None => Ok(Value::Void),
-
-          ControlFlow::Break
-          | ControlFlow::Continue => return Err(InterpreterError::InvalidEscapeFunctionCall
-          {
-            function: callee_name.clone(),
-          }),
         }
       },
 
       Expr::Member { object, property } =>
       {
-        Ok(self.eval_expr(expr)?)
+        let receiver = self.eval_expr(object)?;
+        Err(InterpreterError::MethodCallRequired
+        {
+          property: property.clone(),
+          target_type: receiver.type_name(),
+        })
       },
 
       Expr::Index { object, index } =>
@@ -422,26 +327,65 @@ impl Interpreter
 
           Value::String(object) =>
           {
-            if index >= object.len()
+            match object.chars().nth(index)
             {
-              return Err(InterpreterError::InvalidIndexValue
+              Some(character) =>
               {
-                index: index as f64,
-                reason: " is out of bounds, therefore it does not correspond with any position of the element it indexes"
-              });
-            }
+                return Ok(Value::String(character.to_string()));
+              }
 
-            return Ok(Value::String(object.chars().nth(index)));
+              None =>
+              {
+                return Err(InterpreterError::InvalidIndexValue
+                {
+                  index: index as f64,
+                  reason: " is out of bounds",
+                });
+              }
+            }
+          }
+
+          Value::Number(object) =>
+          {
+            let mut number: String = object.abs().to_string();
+            number.retain(| character | character != '.' && character != '-');
+
+            match number.chars().nth(index)
+            {
+              Some(character) =>
+              {
+                if let Some(digit) = character.to_digit(10)
+                {
+                  return Ok(Value::Number(digit as f64));
+                } else
+                {
+                  return Err(InterpreterError::InvalidNumericIndexSource
+                  {
+                    position: index,
+                    value: object,
+                  })
+                }
+              }
+
+              None =>
+              {
+                return Err(InterpreterError::InvalidIndexValue
+                {
+                  index: index as f64,
+                  reason: " is out of bounds",
+                });
+              }
+            }
           }
 
           object =>
           {
-
+            return Err(InterpreterError::NonIndexableValue
+            {
+              target_type: object.type_name(),
+            });
           }
         }
-
-
-        Ok(self.eval_expr(expr)?)
       },
     }
   }
@@ -682,7 +626,7 @@ impl Interpreter
 
           (left, right) =>
           {
-            return Err(InterpreterError::InvalidTypeComparisson
+            return Err(InterpreterError::InvalidTypeComparison
             {
               op: Self::binary_op_to_str(op),
               left: left.type_name(),
@@ -965,43 +909,37 @@ impl Interpreter
         let mut  expressions = Vec::new();
         for arg in args
         {
-          expressions.push(self.eval_expr(arg)?);
+          expressions.push(self.eval_expr(arg)?.to_string());
         }
 
-        let text_string = if let Some(text_string) = text_string
+        if text_string.is_none() && !expressions.is_empty()
         {
-          text_string
-        } else
-        {
-          ""
-        };
-
-        let mut seen_open_bracket = false;
-        let mut arg_iter = expressions.iter();
-        let mut output = String::new();
-
-        for character in text_string.chars()
-        {
-          if character == '{'
+          return Err(InterpreterError::NoValidFormatterFound
           {
-            seen_open_bracket = true;
-            continue;
-          }
-
-          if character == '}' && seen_open_bracket
-          {
-            match arg_iter.next()
-            {
-              Some(value) => output.push_str(&value.to_string()),
-              None => return Err(InterpreterError::InvalidAmoutOfArguments)
-            }
-
-            seen_open_bracket = false;
-            continue;
-          }
-
-          output.push(character);
+            value: expressions[0].to_string(),
+          })
         }
+
+        let text_string = text_string.as_deref().unwrap_or("");
+        let string_placeholder_amount = Self::count_placeholders_in_string(text_string);
+
+        if expressions.len() > string_placeholder_amount
+        {
+          return Err(InterpreterError::TooManyArguments
+          {
+            function: if *new_line {"println".to_string()} else {"print".to_string()},
+            amount_of_args: string_placeholder_amount,
+          })
+        } else if expressions.len() < string_placeholder_amount
+        {
+          return Err(InterpreterError::TooFewArguments
+          {
+            function: if *new_line {"println".to_string()} else {"print".to_string()},
+            amount_of_args: string_placeholder_amount as usize,
+          })
+        }
+
+        let output = Self::format_output(text_string, &expressions);
 
         if *new_line
         {
@@ -1037,11 +975,23 @@ impl Interpreter
 
       Stmt::Match { value, arms } =>
       {
+        let matched_value = self.eval_expr(value)?;
+
+        for (pattern, body) in arms
+        {
+          if Self::pattern_matches(pattern, &matched_value)
+          {
+            let flow = self.exec_block(body)?;
+            return Ok(flow);
+          }
+        }
+
         Ok(ControlFlow::None)
       },
 
       Stmt::Entry { name } =>
       {
+
         Ok(ControlFlow::None)
       },
 
@@ -1325,5 +1275,75 @@ impl Interpreter
         }
       },
     }
+  }
+
+  fn count_placeholders_in_string(text_string: &str) -> usize
+  {
+    let mut count = 0;
+    let mut chars = text_string.chars().peekable();
+
+    while let Some(char) = chars.next()
+    {
+      if char == '@'
+      {
+        if let Some('@') = chars.peek()
+        {
+          chars.next();
+        } else
+        {
+          count += 1;
+        }
+      }
+    }
+
+    count
+  }
+
+  fn format_output(text_string: &str, expressions: &[String]) -> String
+  {
+    let mut output = String::with_capacity(text_string.len() + expressions.iter().map(|e| e.len()).sum::<usize>());
+    let mut chars = text_string.chars().peekable();
+    let mut index = 0;
+
+    while let Some(char) = chars.next()
+    {
+      if char == '@'
+      {
+        match chars.peek()
+        {
+          Some('@') =>
+          {
+            output.push('@');
+            chars.next();
+          },
+
+          _ =>
+          {
+            if index < expressions.len()
+            {
+              output.push_str(&expressions[index]);
+              index += 1;
+            }
+          },
+        }
+      } else
+      {
+        output.push(char);
+      }
+    }
+
+    output
+  }
+
+  fn pattern_matches(pattern: &Pattern, value: &Value) -> bool
+  {
+    return match pattern
+    {
+      Pattern::Wildcard => true,
+      Pattern::Number(number) => if *value == Value::Number(*number) {true} else {false},
+      Pattern::String(string) => if *value == Value::String(string.clone()) {true} else {false},
+      Pattern::Bool(boolean) => if *value == Value::Bool(*boolean) {true} else {false},
+      Pattern::Identifier(_) => false,
+    };
   }
 }
