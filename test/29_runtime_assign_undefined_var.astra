@@ -1,0 +1,6 @@
+// Assigning to a variable that was never declared
+entry "main";
+
+fn main(): void {
+  ghost = 42;
+}

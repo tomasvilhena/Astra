@@ -1,328 +1,156 @@
+use miette::{IntoDiagnostic, NamedSource, Result};
+use std::{path::{Path, PathBuf}, time::{Instant}};
+use clap::{Parser as clap_parser3};
+
 mod frontend;
-mod runtime;
-use frontend::lexer::Lexer;
+use frontend::lexer::{Lexer};
 use frontend::parser::Parser;
-use miette::{NamedSource, Result};
+
+mod runtime;
 use runtime::interpreter::Interpreter;
 
-fn main() -> Result<()> 
+pub mod args;
+use args::{Cli, Commands};
+
+use tabled::{
+    Tabled, Table,
+    settings::{Style, Alignment, object::Columns},
+};
+
+
+#[derive(Tabled)]
+struct TokenRow
 {
-    let source = r#"
-        entry main;
-// ==============================
-// Astra Programming Language Syntax Demo
-// ==============================
-
-// Single-line comment
-
-/* Multi-line comment */
-// ------------------------------
-// #include
-// ------------------------------
-// Allows importing libraries.
-// Libraries are written in Astra syntax as well.
-// A library cannot define an entry point (no main). #include "std.astra" #include "math.astra"
-
-// ------------------------------
-// Functions
-// ------------------------------
-// Functions are declared with the fn keyword.
-// Syntax: fn name(params): return_type { ... }
-//
-// Return type can be any type (number, string, etc.) or void if nothing is returned.
-
-fn add(a: number, b: number): number
-{
-  return a + b;
-  // explicit return
+  token_kind: String,
+  lexed_value: String,
+  span: String,
 }
 
-// Default parameter values are supported using = inside the parameter list.
-fn greet(name: string = "World"): void
+fn validate_input_file(path: &Path) -> miette::Result<PathBuf>
 {
-  println("Hello, {}", name);
-}
-// ------------------------------
-// Arrays
-// ------------------------------
-fn array_demo(): void
-{
-  let nums: array<number> = [1, 2];
-
-  nums.push_end(3); // adds value to the end of an array
-
-  nums.push_start(0); // adds value to the beginning of the array
-
-  nums.remove(0); // removes the number at the specified position
-
-  let more: array<number> = [4, 5];
-
-  nums.merge(more); // appends the "more" array to the end of the nums array
-
-  println("Array size: {}", nums.length()); // provides the length of the array
-}
-
-// ------------------------------
-// Strings
-// ------------------------------
-fn string_demo(): void
-{
-  let text: string = "hello";
-  let more: string = " world";
-
-  text.uppercase(); // makes text string uppercase
-  text.lowercase(); // makes text string lowercase
-
-  text.expand(more); // adds the "more" string to the "text" string
-
-  text = text.trim(); // removes whitespace at beginning and end
-
-  if (text.contains("world")) // returns true if the substring exists
+  if !path.exists()
   {
-    println("Text: {}", text);
+    return Err(miette::miette!(
+      "A file with this name does not exist: {}",
+      path.display(),
+    ));
   }
+
+  if !path.is_file()
+  {
+    return Err(miette::miette!(
+      "Path is not a file: {}",
+      path.display(),
+    ));
+  }
+
+  if path.extension().and_then(|string| string.to_str()) != Some("astra")
+  {
+    return Err(miette::miette!(
+      "Invalid extension, Expected .astra, got: .{}",
+      path.extension().and_then(|string| string.to_str()).unwrap_or("Null"),
+    ));
+  }
+
+  Ok(path.to_path_buf())
 }
 
-// ------------------------------
-// Input and Matching
-// ------------------------------
-fn input_demo(): void
+fn main() -> Result<()>
 {
-  println("Enter your age: ");
+  let cli = Cli::parse();
 
-  let input: string = read(); // reads input from the user
-  let age: number = input.parse_number(); // converts the string to a number
-
-  // Match is used for branching on values
-  match age
+  match cli.commands
   {
-    18 => {
-      println("You are 18!");
-    }
-
-    21 => {
-      println("You are 21!");
-    }
-
-    _ => {
-      println("Age: {}", age);
-    } // "_" or "default" matches anything else
-
-  }
-}
-
-// ------------------------------
-// Loops
-// ------------------------------
-fn loops_demo(): void
-{
-  // repeat loop with counts
-  repeat 5 as i // repeats 5 times: i = 0..4
-  {
-    print("{}", i);
-  }
-
-  repeat 6 as i // repeats 6 times: i = 0..5
-  {
-    print("{}", i);
-  }
-
-  // Iterating arrays by index
-  let book_collection: array<string> = ["lord of the rings", "hobbit"];
-  repeat book_collection.length() as i
-  {
-    print("{}", book_collection[i]);
-  }
-
-  // Iterating arrays by value
-  repeat book_collection.length() as i
-  {
-    let book: string = book_collection[i];
-    print("{}", book);
-  }
-
-  // while loop
-  let x: number = 0;
-
-  while (x < 3)
-  {
-    println("While: {}", x);
-    x += 1;
-
-    if (x == 2)
+    Commands::Tokens { file, time } =>
     {
-      continue;
-    } // skip rest of this iteration
-  }
-
-  // do-while loop
-  let y: number = 0;
-  do
-  {
-    println("Do-while: {}", y);
-    y += 1;
-
-    if (y == 1)
-    {
-       break; // exit loop early
-    }
-  } while (y < 2);
-}
-
-// ------------------------------
-// Operators
-// ------------------------------
-fn operators_demo(): void
-{
-  let a: number = 10;
-  let b: number = 3;
-
-  // Arithmetic
-  println("Sum: {}", a + b);
-  println("Sub: {}", a - b);
-  println("Mul: {}", a * b);
-  println("Div: {}", a / b);
-  println("Mod: {}", a % b);
-  println("Exponentiation: {}", a*);
-
-  // example custom operator
-  // Boolean logic
-  let flag1: bool = (a > b) && (b < 5);
-  let flag2: bool = (a > b) AND (b < 5);
-
-  // keyword alternative
-  let flag3: bool = (a > b) || (b < 5);
-  let flag4: bool = (a > b) OR (b < 5);
-  println("Flag: {}", flag1); }
-
-  // ------------------------------
-  // Error Handling (TRY/ON)
-  // ------------------------------
-  // try { ... } on { ... } executes the try block,
-  // and if an error occurs, runs the on block.
-  // It can be used for statements (no return value required).
-
-  fn error_handling_demo(): void
-  {
-    try
-    {
-      println("Trying risky code...");
-      let x: number = "oops".parse_int();
-      // will fail
-    } on
-    {
-      println("Recovering from error");
-    }
-  }
-
-  // ------------------------------
-  // Debugging
-  // ------------------------------
-  // The debug function prints variable names and values.
-  // It can also evaluate expressions and show the result.
-
-  fn debug_demo(): void
-  {
-    let number: number = 42;
-    let text: string = "astra";
-
-    debug(number, text);
-    // prints both variable name and value debug(number == 42);
-    // prints "number == 42: true"
-  }
-
-  // ------------------------------
-  // Entry Point
-  // ------------------------------
-
-  fn main(): void
-  {
-    println("=== Astra Language Syntax Demo ===");
-
-    greet(); // default parameter ("World")
-
-    greet("Astra"); // explicit argument
-
-    println("Add: {}", add(5, 7));
-    array_demo();
-
-    string_demo();
-
-    input_demo();
-
-    loops_demo();
-
-    operators_demo();
-
-    error_handling_demo();
-
-    debug_demo();
-
-    clear(); // clears the screen
-
-    println("Done.");
-    
-    
-  }
-
-  "#;
-
-  let code = r#"
-    entry "main";
-    let a: number = 10; 
-    let b: number = 5;
-    let name: string = "Astra";
-    print("Testing parser for: ");
-    println("{}", name);
-    let sum: number = a + b * 2; 
-    println("10 + 5 * 2 = {}", sum);
-    let check: bool = sum > 15;
-    println("Is sum > 15? {}", check);
-
-    if (a == 0) {
-      print("0");
-    } else if (a == 10) 
-    {
-      println("10 = a, because a = 10");
-    }
-
-    let a: number = 0;
-
-    while (true) 
-    {
-      println("1");
-    }
-  "#;
-  let mut lexer = Lexer::new(code);
-
-  match lexer.tokenize() 
-  {
-    Ok(tokens) => 
-    {
-      let mut parser = Parser::new(tokens);
-
-      match parser.produce_ast() 
+      let path = Path::new(&file);
+      match validate_input_file(path)
       {
-        Ok(ast) => 
-        {
-          //print!("{:?}", ast);
-          let mut interpreter = Interpreter::new();
-          interpreter.run(&ast).map_err(miette::Report::new)?;
-          Ok(())
-        }
-
-        Err(err) => 
-        {
-          let src = NamedSource::new("test.ast", code.to_string());
-            Err(miette::Report::new(err).with_source_code(src))
-        }
+        Ok(_) => {}
+        Err(err) => return Err(err),
       }
-    }
 
-    Err(err) => 
+      let time_taken_to_lex = if time {Some(Instant::now())} else {None};
+      let code = std::fs::read_to_string(path).unwrap();
+
+      let tokens = match Lexer::new(&code).tokenize()
+      {
+        Ok(tokens) => {tokens},
+        Err(error) =>
+        {
+          let source = NamedSource::new(&file, code.clone());
+          return Err(miette::Report::new(error).with_source_code(source))
+        }
+      };
+
+      let mut token_rows: Vec<TokenRow> = Vec::new();
+
+      for token in tokens
+      {
+        token_rows.push(TokenRow
+        {
+          token_kind: format!("{:?}", token.token_kind),
+          lexed_value: token.lexed_value,
+          span: format!("{:?}", token.span),
+        });
+      }
+
+      let mut table = Table::new(token_rows);
+      table.with(Style::modern_rounded());
+      table.modify(Columns::first(), Alignment::right());
+
+      println!("{table}");
+      if let Some(time) = time_taken_to_lex
+      {
+        println!("\nTook: {:?} to lex the code", time.elapsed());
+      }
+
+      return Ok(());
+    },
+
+    Commands::Run { file, time } =>
     {
-      let src = NamedSource::new("test.ast", code.to_string());
-      Err(miette::Report::new(err).with_source_code(src))
+      let path = Path::new(&file);
+
+      match validate_input_file(path)
+      {
+        Ok(_) => {}
+        Err(err) => return Err(err),
+      }
+
+      let time_taken_to_execute = if time {Some(Instant::now())} else {None};
+
+      let code = std::fs::read_to_string(path).unwrap();
+
+      let tokens = match Lexer::new(&code).tokenize()
+      {
+        Ok(tokens) => {tokens},
+        Err(error) =>
+        {
+          let source = NamedSource::new(&file, code.clone());
+          return Err(miette::Report::new(error).with_source_code(source))
+        }
+      };
+
+      let ast = match Parser::new(tokens).produce_ast()
+      {
+        Ok(ast) => {ast},
+        Err(error) =>
+        {
+          let source = NamedSource::new(&file, code.clone());
+          return Err(miette::Report::new(error).with_source_code(source))
+        }
+      };
+
+      let mut interpreter = Interpreter::new();
+      interpreter.run(&ast).into_diagnostic()?;
+
+      if let Some(time) = time_taken_to_execute
+      {
+        println!("\nTook: {:?} to execute the Program", time.elapsed());
+      }
+
+      return Ok(());
     }
   }
 }

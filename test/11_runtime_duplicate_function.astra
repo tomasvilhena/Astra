@@ -1,0 +1,13 @@
+entry "main";
+
+fn helper(): void {
+  println("first");
+}
+
+fn helper(): void {
+  println("second duplicate");
+}
+
+fn main(): void {
+  helper();
+}

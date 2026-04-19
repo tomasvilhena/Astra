@@ -1,0 +1,13 @@
+// break inside a function called from a loop should error on the function,
+// not break the outer loop -- the function boundary should catch it
+entry "main";
+
+fn try_break(): void {
+  break;
+}
+
+fn main(): void {
+  while (true) {
+    try_break();
+  }
+}

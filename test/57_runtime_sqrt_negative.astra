@@ -1,0 +1,6 @@
+entry "main";
+
+fn main(): void {
+  let n: number = -9;
+  let root: number = n.sqrt();
+}

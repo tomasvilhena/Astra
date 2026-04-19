@@ -1,0 +1,7 @@
+// Booleans are not indexable
+entry "main";
+
+fn main(): void {
+  let flag: bool = true;
+  let x: bool = flag[0];
+}

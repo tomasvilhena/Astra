@@ -1,0 +1,154 @@
+entry "main";
+
+fn arithmetic(a: number, b: number): number {
+  let sum: number = a + b;
+  let diff: number = a - b;
+  let prod: number = a * b;
+  let quo: number = a / b;
+  let rem: number = a % b;
+  let pow: number = a ^ b;
+  println("arith @ @ @ @ @ @", sum, diff, prod, quo, rem, pow);
+  return sum;
+}
+
+fn comparisons(a: number, b: number): bool {
+  let c1: bool = a == b;
+  let c2: bool = a != b;
+  let c3: bool = a > b;
+  let c4: bool = a >= b;
+  let c5: bool = a < b;
+  let c6: bool = a <= b;
+  println("cmp @ @ @ @ @ @", c1, c2, c3, c4, c5, c6);
+  return c1 || c2;
+}
+
+fn booleans(x: bool, y: bool): bool {
+  let r1: bool = (x && y) || (!x);
+  let r2: bool = (x AND y) OR (NOT x);
+  println("bool @ @", r1, r2);
+  return r1 || r2;
+}
+
+fn arrays_and_strings(): void {
+  let nums: array = [1, 2, 3];
+  nums.push(4);
+  nums.push_start(0);
+  nums.pop();
+  nums.pop_start();
+  nums.push(1, 2, 3);
+  nums.reverse();
+  let has_two: bool = nums.contains(2);
+  println("has_two @", has_two);
+
+  let nested: array = [[1, 2], [3, [4, 5]]];
+  nested.flatten();
+  println("nested_len @", nested.length());
+
+  let text: string = "  Hello,World  ";
+  text.uppercase();
+  text = text.trim();
+  let parts: array = text.split(",");
+  let starts: bool = text.starts_with("HEL");
+  let ends: bool = text.ends_with("LD");
+  let contains: bool = text.contains("LO");
+  let replaced: string = text.replace("HELLO", "HI");
+  let replaced_all: string = text.replace_all("L", "_");
+  println("str @ @ @ @ @ @", starts, ends, contains, replaced, replaced_all, parts.length());
+
+  let idx0: number = nums[0];
+  let ch0: string = text[0];
+  let digit: number = 123.45[2];
+  println("index @ @ @", idx0, ch0, digit);
+}
+
+fn loops_and_control(): void {
+  let i: number = 0;
+
+  while (i < 6) {
+    i += 1;
+
+    if (i == 2) {
+      continue;
+    } else if (i == 5) {
+      break;
+    } else {
+      print("loop:@ ", i);
+    }
+  }
+
+  repeat 4 as j {
+    println("rep @", j);
+  }
+}
+
+fn ranges_and_match(): void {
+  let r1: array = 1..5;
+  let r2: array = 1..=5;
+  println("ranges @ @", r1.length(), r2.length());
+
+  let n: number = 3;
+  match n {
+    1 => {
+      println("one");
+    }
+
+    2 => {
+      println("two");
+    }
+
+    _ => {
+      println("other @", n);
+    }
+  }
+}
+
+fn try_on_demo(): void {
+  try {
+    let bad: number = 10 / 0;
+    println("bad @", bad);
+  } on {
+    println("caught runtime error");
+  }
+}
+
+fn assignments_demo(): void {
+  let x: number = 10;
+  x += 2;
+  x -= 1;
+  x *= 3;
+  x /= 2;
+  x %= 4;
+  x ^= 2;
+  println("assign @", x);
+}
+
+fn input_and_clear_demo(): void
+{
+  clear();
+  let name: string = read("Enter your name: ");
+  println("hello @", name);
+
+  let raw: string = read();
+  println("second input: @", raw);
+}
+
+fn main(): void {
+  let ok: bool = comparisons(7, 3);
+  println("ok @", ok);
+
+  input_and_clear_demo();
+
+  let total: number = arithmetic(7, 3);
+  println("total @", total);
+
+  let b: bool = booleans(true, false);
+  println("b @", b);
+
+  arrays_and_strings();
+  loops_and_control();
+  ranges_and_match();
+  assignments_demo();
+  try_on_demo();
+
+  println("done");
+}

@@ -1,0 +1,6 @@
+entry "main";
+
+fn main(): void {
+  let n: number = 42;
+  n.format();
+}

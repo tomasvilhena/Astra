@@ -1,0 +1,8 @@
+// Declaring a typed variable with no value assigns Void,
+// which mismatches the declared type
+entry "main";
+
+fn main(): void {
+  let x: number;
+  println("@ ", x);
+}

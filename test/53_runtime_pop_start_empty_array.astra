@@ -1,0 +1,6 @@
+entry "main";
+
+fn main(): void {
+  let nums: array = [];
+  nums.pop_start();
+}

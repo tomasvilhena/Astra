@@ -1,0 +1,9 @@
+entry "main";
+
+fn add(a: number, b: number): number {
+  return a + b;
+}
+
+fn main(): void {
+  let result: number = add(1);
+}

@@ -1,0 +1,7 @@
+// is_even() requires a whole integer, not a float
+entry "main";
+
+fn main(): void {
+  let n: number = 4.5;
+  let result: bool = n.is_even();
+}

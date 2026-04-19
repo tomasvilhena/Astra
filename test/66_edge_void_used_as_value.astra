@@ -1,0 +1,11 @@
+// Using the return value of a void function as a number
+// The function returns Void; storing it in a number variable should fail type check
+entry "main";
+
+fn do_nothing(): void {
+  println("doing nothing");
+}
+
+fn main(): void {
+  let result: number = do_nothing();
+}

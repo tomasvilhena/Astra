@@ -1,0 +1,7 @@
+// length() takes no arguments
+entry "main";
+
+fn main(): void {
+  let nums: array = [1, 2, 3];
+  let n: number = nums.length(99);
+}

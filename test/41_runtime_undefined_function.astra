@@ -1,0 +1,5 @@
+entry "main";
+
+fn main(): void {
+  let result: number = doesNotExist(5);
+}

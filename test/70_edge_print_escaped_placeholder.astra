@@ -1,0 +1,8 @@
+// @@ in a format string should print a literal @, not consume an argument
+// This tests whether the escape works correctly
+entry "main";
+
+fn main(): void {
+  println("email: user@@domain.com");
+  println("price: @@ each, total: @", 5);
+}

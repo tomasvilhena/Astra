@@ -1,0 +1,7 @@
+// to_number() on a non-numeric string should fail
+entry "main";
+
+fn main(): void {
+  let text: string = "hello";
+  let n: number = text.to_number();
+}

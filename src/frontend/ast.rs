@@ -46,7 +46,7 @@ pub enum Pattern
   Bool(bool),
   String(String),
   Identifier(String),
-  Wildcard, // _
+  Wildcard,
 }
 
 #[derive(Debug, Clone)]
@@ -70,10 +70,8 @@ pub enum BinaryOperator
   // Logical
   And,        // &&
   Or,         // ||
-  Not,        // !
   KeywordAnd, // AND
   KeywordOr,  // OR
-  KeywordNot, // NOT
 
   // Ranges
   RangeExclusive, // ..
@@ -108,7 +106,7 @@ pub enum AssignTarget
 }
 
 #[derive(Debug, Clone)]
-pub enum Stmt//statments
+pub enum Stmt
 {
   Let
   {
@@ -171,11 +169,6 @@ pub enum Stmt//statments
   Entry
   {
     name: String,
-  },
-
-  Include
-  {
-    path: String,
   },
 
   Try

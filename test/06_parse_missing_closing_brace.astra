@@ -1,0 +1,7 @@
+entry "main";
+
+fn main(): void {
+  let x: number = 5;
+  if (x > 3) {
+    println("big");
+

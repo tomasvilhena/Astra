@@ -1,0 +1,8 @@
+entry "main";
+
+fn main(): void {
+  let n: number = -3;
+  repeat n as i {
+    println("i = @", i);
+  }
+}

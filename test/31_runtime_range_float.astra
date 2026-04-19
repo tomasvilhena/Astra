@@ -1,0 +1,6 @@
+// Range endpoints must be whole integers
+entry "main";
+
+fn main(): void {
+  let r: array = 1.5..4.5;
+}

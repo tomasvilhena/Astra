@@ -1,0 +1,7 @@
+// Numbers are indexable by digit position; position 99 does not exist
+entry "main";
+
+fn main(): void {
+  let n: number = 123;
+  let d: number = n[99];
+}

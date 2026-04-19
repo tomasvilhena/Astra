@@ -1,0 +1,6 @@
+// entry points to "start" but no fn start() exists
+entry "start";
+
+fn main(): void {
+  println("main exists but is not the entry");
+}

@@ -1,0 +1,7 @@
+// Accessing .length as a property without calling it should error
+entry "main";
+
+fn main(): void {
+  let nums: array = [1, 2, 3];
+  let n: number = nums.length;
+}

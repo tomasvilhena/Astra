@@ -1,0 +1,7 @@
+// *= on a string with a float is not allowed
+entry "main";
+
+fn main(): void {
+  let x: string = "ha";
+  x *= 3.5;
+}
