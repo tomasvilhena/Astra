@@ -4,6 +4,7 @@ use crate::runtime::methods;
 use crate::runtime::error::{InterpreterError, RuntimeError};
 use text_io::read;
 use rustc_hash::FxHashMap;
+use std::rc::Rc;
 
 enum ControlFlow
 {
@@ -23,9 +24,9 @@ pub struct Interpreter
 #[derive(Debug, Clone)]
 struct FunctionDef
 {
-  params: Vec<String>,
+  params: Rc<[String]>,
   return_type: String,
-  body: Vec<Stmt>,
+  body: Rc<[Stmt]>,
 }
 
 #[derive(Debug, Clone)]
@@ -42,7 +43,7 @@ impl Interpreter
     {
       global: FxHashMap::default(),
       functions: FxHashMap::default(),
-      call_stack: vec![],
+      call_stack: Vec::new(),
     }
   }
 
@@ -105,9 +106,9 @@ impl Interpreter
             name.clone(),
             FunctionDef
             {
-              params: param_names,
+              params: Rc::from(param_names),
               return_type: return_type.clone().unwrap_or("void".to_string()),
-              body: body.clone()
+              body: Rc::from(body.clone()),
             }
           );
         },
@@ -572,7 +573,7 @@ impl Interpreter
 
           (Value::String(left), Value::String(right)) =>
           {
-            return Ok(Value::String(format!("{}{}", left, right)));
+            return Ok(Value::String(left + &right));
           },
 
           (left, right) =>
@@ -901,9 +902,15 @@ impl Interpreter
         {
           AssignTarget::Variable(name) =>
           {
-            let current = self.get_var(name)?;
-            let new_value= self.apply_assign_op(op, current.clone(), right)?;
-            self.assign_var(name, new_value)?;
+            if matches!(op, AssignOperator::Assign)
+            {
+              self.assign_var(name, right)?;
+            } else
+            {
+              let current = self.get_var(name)?;
+              let new_value= self.apply_assign_op(op, current.clone(), right)?;
+              self.assign_var(name, new_value)?;
+            }
           },
 
           AssignTarget::Index { object, index } =>
@@ -1112,9 +1119,9 @@ impl Interpreter
           name.clone(),
           FunctionDef
           {
-            params: param_names,
+            params: Rc::from(param_names),
             return_type: return_type.clone().unwrap_or("void".to_string()),
-            body: body.clone(),
+            body: Rc::from(body.clone()),
           }
         );
 
