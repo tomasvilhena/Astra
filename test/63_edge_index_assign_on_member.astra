@@ -1,0 +1,9 @@
+// Assigning into an index where the object is not a plain identifier
+// e.g. nested[0][1] = 5  -- the outer index produces a non-identifier object
+// Expected: InvalidAssignmentTarget at runtime
+entry "main";
+
+fn main(): void {
+  let nested: array = [[1, 2], [3, 4]];
+  nested[0][1] = 99;
+}

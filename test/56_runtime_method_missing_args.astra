@@ -1,0 +1,7 @@
+// push() requires at least one argument
+entry "main";
+
+fn main(): void {
+  let nums: array = [1, 2, 3];
+  nums.push();
+}

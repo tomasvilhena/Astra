@@ -1,0 +1,6 @@
+// Subtraction is only valid for numbers
+entry "main";
+
+fn main(): void {
+  let x: string = "hello" - "world";
+}

@@ -1,0 +1,7 @@
+// Two entry directives -- the parser should reject this with EntryNotFirst
+entry "main";
+entry "main";
+
+fn main(): void {
+  println("two entries");
+}

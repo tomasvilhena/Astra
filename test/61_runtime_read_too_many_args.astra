@@ -1,0 +1,6 @@
+// read() accepts at most 1 argument (the prompt string)
+entry "main";
+
+fn main(): void {
+  let input: string = read("Enter name: ", "extra arg");
+}

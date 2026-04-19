@@ -1,16 +1,9 @@
-use std::any::Any;
-use std::clone;
-use std::collections::HashMap;
-use std::fmt::format;
-use std::sync::mpsc::Receiver;
-use std::thread::current;
-use miette::{Diagnostic, SourceSpan};
-use thiserror::Error;
 use crate::frontend::ast::{AssignOperator, AssignTarget, BinaryOperator, Expr, Pattern, Stmt, UnaryOperator};
-use crate::frontend::lexer::TokenKind;
-use crate::runtime::value::{self, Value};
+use crate::runtime::value::Value;
 use crate::runtime::methods;
 use crate::runtime::error::{InterpreterError, RuntimeError};
+use text_io::read;
+use rustc_hash::FxHashMap;
 
 enum ControlFlow
 {
@@ -22,8 +15,8 @@ enum ControlFlow
 
 pub struct Interpreter
 {
-  global: HashMap<String, Value>,
-  functions: HashMap<String, FunctionDef>,
+  global: FxHashMap<String, Value>,
+  functions: FxHashMap<String, FunctionDef>,
   call_stack: Vec<CallFrame>
 }
 
@@ -31,13 +24,14 @@ pub struct Interpreter
 struct FunctionDef
 {
   params: Vec<String>,
+  return_type: String,
   body: Vec<Stmt>,
 }
 
 #[derive(Debug, Clone)]
 struct CallFrame
 {
-  locals: HashMap<String, Value>,
+  locals: FxHashMap<String, Value>,
 }
 
 impl Interpreter
@@ -46,8 +40,8 @@ impl Interpreter
   {
     Self
     {
-      global: HashMap::new(),
-      functions: HashMap::new(),
+      global: FxHashMap::default(),
+      functions: FxHashMap::default(),
       call_stack: vec![],
     }
   }
@@ -56,21 +50,107 @@ impl Interpreter
   {
     let mut entry_name: Option<String> = None;
 
+    let mut seen_entry: bool = false;
+    let mut header_closed: bool = false;
+
+    self.functions.clear();
+
     for stmt in program
     {
       match stmt
       {
+        Stmt::Entry { name } =>
+        {
+          if seen_entry
+          {
+            return Err(InterpreterError::DuplicateEntry);
+          }
+
+          if header_closed
+          {
+            return Err(InterpreterError::HeaderOrderViolation
+            {
+              item: "entry".to_string(),
+            });
+          }
+
+          seen_entry = true;
+          entry_name = Some(name.clone())
+        },
+
         Stmt::Function { name, params, return_type, body } =>
         {
-          self.functions.insert(name.clone(), FunctionDef { params, body});
+          if !seen_entry
+          {
+            return Err(InterpreterError::MissingEntryPoint{something: "function declaration".to_string()});
+          }
+
+          header_closed = true;
+
+          if self.functions.contains_key(name)
+          {
+            return Err(InterpreterError::DuplicateFunction
+            {
+              name: name.clone(),
+            })
+          }
+
+          let mut param_names = Vec::new();
+          for (param_name, _) in params
+          {
+            param_names.push(param_name.clone());
+          }
+
+          self.functions.insert(
+            name.clone(),
+            FunctionDef
+            {
+              params: param_names,
+              return_type: return_type.clone().unwrap_or("void".to_string()),
+              body: body.clone()
+            }
+          );
         },
-        Stmt::Entry { name } => {},
-        _ => {},
+
+        _ =>
+        {
+          if !seen_entry
+          {
+            return Err(InterpreterError::MissingEntryPoint
+            {
+              something: "top-level statement".to_string(),
+            });
+          }
+
+          header_closed = true
+        },
       }
     }
 
-    self.exec_block(program)?;
-    Ok(())
+    let entry = entry_name.ok_or(InterpreterError::UndefinedCallTarget
+    {
+      function: "entry".to_string(),
+    })?;
+
+    let entry_fn = self.functions.get(&entry).cloned().ok_or(
+    InterpreterError::UndefinedCallTarget
+    {
+      function: entry.clone(),
+    })?;
+
+    let flow = self.exec_block(&entry_fn.body)?;
+
+    match flow
+    {
+      ControlFlow::None | ControlFlow::Return(_) => Ok(()),
+      ControlFlow::Break | ControlFlow::Continue =>
+      {
+        Err(InterpreterError::InvalidEscapeFunctionCall
+        {
+          function: entry,
+        })
+      }
+    }
   }
 
   fn binary_op_to_str(op: &BinaryOperator) -> &'static str
@@ -95,8 +175,6 @@ impl Interpreter
       BinaryOperator::KeywordOr => "OR",
       BinaryOperator::RangeExclusive => "..",
       BinaryOperator::RangeInclusive => "..=",
-      BinaryOperator::Not => "!",
-      BinaryOperator::KeywordNot => "NOT",
     }
   }
 
@@ -169,9 +247,64 @@ impl Interpreter
         {
           Expr::Identifier(name) =>
           {
-            let (params, body)  = if let Some(function) = self.functions.get(name)
+            if name == "read"
             {
-              (function.params.clone(), function.body.clone())
+              let mut evaluated_args: Vec<Value> = Vec::new();
+              for arg in args
+              {
+                evaluated_args.push(self.eval_expr(arg)?);
+              }
+
+              if evaluated_args.len() <= 1
+              {
+                match evaluated_args.get(0)
+                {
+                  Some(Value::String(string)) =>
+                  {
+                    print!("{}", string);
+                    return Ok(Value::String(read!("{}\n")));
+                  },
+
+                  Some(other) => return Err(InterpreterError::TypeMismatch
+                  {
+                    expected: "string".to_string(),
+                    found: other.type_name().to_string(),
+                  }),
+
+                  None => return Ok(Value::String(read!("{}\n"))),
+                }
+              } else if evaluated_args.len() > 1
+              {
+                return Err(InterpreterError::TooManyArguments
+                {
+                  function: "read".to_string(),
+                  amount_of_args: 1,
+                });
+              }
+            } else if name == "clear"
+            {
+              let mut evaluated_args: Vec<Value> = Vec::new();
+              for arg in args
+              {
+                evaluated_args.push(self.eval_expr(arg)?);
+              }
+
+              if evaluated_args.len() > 0
+              {
+                return Err(InterpreterError::ArgumentsInNoArgumentFunction
+                {
+                  function: "clear".to_string(),
+                  amount_of_args: evaluated_args.len(),
+                });
+              }
+
+              print!("\x1B[2J\x1B[H");
+              return Ok(Value::Void);
+            }
+
+            let (params, body, return_type)  = if let Some(function) = self.functions.get(name)
+            {
+              (function.params.clone(), function.body.clone(), function.return_type.clone())
             } else
             {
               return Err(InterpreterError::UndefinedCallTarget
@@ -202,7 +335,7 @@ impl Interpreter
               });
             }
 
-            let mut frame = CallFrame {locals: HashMap::new()};
+            let mut frame = CallFrame {locals: FxHashMap::default()};
 
             for (index, param) in params.iter().enumerate()
             {
@@ -214,18 +347,28 @@ impl Interpreter
             self.call_stack.pop();
             let flow = flow?;
 
-            match flow
+            let return_value = match flow
             {
-              ControlFlow::Return(value) => Ok(value),
-
-              ControlFlow::None => Ok(Value::Void),
-
+              ControlFlow::Return(value) => value,
+              ControlFlow::None => Value::Void,
               ControlFlow::Break
               | ControlFlow::Continue => return Err(InterpreterError::InvalidEscapeFunctionCall
               {
                 function: name.clone(),
               }),
+            };
+
+            if return_value.type_name() != return_type
+            {
+              return Err(InterpreterError::ReturnTypeMismatch
+              {
+                function: name.to_string(),
+                expected: return_type,
+                found: return_value.type_name().to_string(),
+              })
             }
+
+            Ok(return_value)
           },
 
           Expr::Member { object, property } =>
@@ -697,12 +840,16 @@ impl Interpreter
         }
       },
 
-      _ =>
+      BinaryOperator::And |
+      BinaryOperator::KeywordAnd =>
       {
-        Err(InterpreterError::UnsupportedBinaryOp
-        {
-          op: Self::binary_op_to_str(op),
-        })
+        return Ok(Value::Bool(left.is_truthy() && right.is_truthy()));
+      },
+
+      BinaryOperator::Or |
+      BinaryOperator::KeywordOr =>
+      {
+        return Ok(Value::Bool(left.is_truthy() || right.is_truthy()));
       }
     }
   }
@@ -885,7 +1032,7 @@ impl Interpreter
               {
                 ControlFlow::Break => break,
                 ControlFlow::Continue => continue,
-                ControlFlow::    Return(value) => {return Ok(ControlFlow::Return(value))},
+                ControlFlow::Return(value) => {return Ok(ControlFlow::Return(value))},
                 ControlFlow::None => continue,
               }
             }
@@ -966,6 +1113,7 @@ impl Interpreter
           FunctionDef
           {
             params: param_names,
+            return_type: return_type.clone().unwrap_or("void".to_string()),
             body: body.clone(),
           }
         );
@@ -986,23 +1134,21 @@ impl Interpreter
           }
         }
 
-        Ok(ControlFlow::None)
+        Err(InterpreterError::NonExhaustiveMatch
+        {
+          value: matched_value.to_string(),
+        })
       },
 
-      Stmt::Entry { name } =>
-      {
-
-        Ok(ControlFlow::None)
-      },
-
-      Stmt::Include { path } =>
-      {
-        Ok(ControlFlow::None)
-      },
+      Stmt::Entry { name } => Ok(ControlFlow::None),
 
       Stmt::Try { try_body, on_body } =>
       {
-        Ok(ControlFlow::None)
+        match self.exec_block(try_body)
+        {
+          Ok(flow) => Ok(flow),
+          Err(_) => self.exec_block(on_body),
+        }
       },
     }
   }
@@ -1088,22 +1234,22 @@ impl Interpreter
       {
         match (current, right)
         {
-          (Value::Number(current), Value::Number(right)) =>
+          (Value::Number(_current), Value::Number(right)) =>
           {
             Ok(Value::Number(right))
           },
 
-          (Value::String(current), Value::String(right)) =>
+          (Value::String(_current), Value::String(right)) =>
           {
             Ok(Value::String(right))
           },
 
-          (Value::Bool(current), Value::Bool(right)) =>
+          (Value::Bool(_current), Value::Bool(right)) =>
           {
             Ok(Value::Bool(right))
           },
 
-          (Value::Array(current), Value::Array(right)) =>
+          (Value::Array(_current), Value::Array(right)) =>
           {
             Ok(Value::Array(right))
           },
@@ -1130,7 +1276,7 @@ impl Interpreter
             Ok(Value::Number(current.powf(right)))
           },
 
-          (current, right) =>
+          (current, _) =>
           {
             Err(InterpreterError::UnsupportedAssignOp
             {
@@ -1150,7 +1296,7 @@ impl Interpreter
             Ok(Value::Number(current - right))
           },
 
-          (current, right) =>
+          (current, _) =>
           {
             Err(InterpreterError::UnsupportedAssignOp
             {
@@ -1178,7 +1324,7 @@ impl Interpreter
             Ok(Value::Number(current % right))
           },
 
-          (current, right) =>
+          (current, _) =>
           {
             Err(InterpreterError::UnsupportedAssignOp
             {
@@ -1203,7 +1349,7 @@ impl Interpreter
             Ok(Value::String(current + &right))
           },
 
-          (current, right) =>
+          (current, _) =>
           {
             Err(InterpreterError::UnsupportedAssignOp
             {
@@ -1231,7 +1377,7 @@ impl Interpreter
             Ok(Value::Number(current / right))
           },
 
-          (current, right) =>
+          (current, _) =>
           {
             Err(InterpreterError::UnsupportedAssignOp
             {
@@ -1264,7 +1410,7 @@ impl Interpreter
             Ok(Value::String(current.repeat(right as usize)))
           },
 
-          (current, right) =>
+          (current, _) =>
           {
             Err(InterpreterError::UnsupportedAssignOp
             {

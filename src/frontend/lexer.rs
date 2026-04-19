@@ -1,12 +1,11 @@
-use miette::{Diagnostic, SourceSpan};
-use thiserror::Error;
+use miette::SourceSpan;
+use super::error::{LexError, LexResult};
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TokenKind 
+pub enum TokenKind
 {
   // Keywords
   Entry,
-  Include,
   Function,
   Return,
   Let,
@@ -22,22 +21,20 @@ pub enum TokenKind
   As,
   Print,
   Println,
-  Read,
-  Clear,
-  
+
   // Types
   NumberType,
   StringType,
   BoolType,
   VoidType,
   ArrayType,
-  
+
   // Literals
   Identifier,
   NumberLiteral,
   StringLiteral,
   BoolLiteral,
-  
+
   // Symbols
   Colon,
   Semicolon,
@@ -49,7 +46,7 @@ pub enum TokenKind
   RightBrace,
   LeftBracket,
   RightBracket,
-  
+
   // Operators
   Assign,
   Plus,
@@ -64,7 +61,7 @@ pub enum TokenKind
   SlashEqual,
   PercentEqual,
   CaretEqual,
-  
+
   // Comparison
   Equal,
   NotEqual,
@@ -72,7 +69,7 @@ pub enum TokenKind
   GreaterEqual,
   Less,
   LessEqual,
-  
+
   // Logical
   And,
   Or,
@@ -80,11 +77,11 @@ pub enum TokenKind
   KeywordAnd,
   KeywordOr,
   KeywordNot,
-  
+
   // Ranges
   RangeExclusive,
   RangeInclusive,
-  
+
   // Special
   Arrow,
   Underscore,
@@ -92,40 +89,16 @@ pub enum TokenKind
 }
 
 #[derive(Debug, Clone)]
-pub struct Token 
+pub struct Token
 {
   pub token_kind: TokenKind,
   pub lexed_value: String,
   pub span: SourceSpan,
-  pub line: usize,
-  pub col: usize,
 }
 
-#[derive(Debug, Error, Diagnostic)]
-pub enum LexError 
-{
-  #[error("unexpected character: '{ch}'")]
-  #[diagnostic(code(lexer::unexpected_character))]
-  UnexpectedCharacter 
-  {
-    ch: char,
-    #[label("not a valid token here")]
-    span: SourceSpan,
-  },
-  
-  #[error("unterminated string literal")]
-  #[diagnostic(code(lexer::unterminated_string))]
-  UnterminatedString 
-  {
-    #[label("string starts here")]
-    span: SourceSpan,
-  },
-}
-
-pub type LexResult<T> = Result<T, LexError>;
 
 #[derive(Debug, Clone)]
-pub struct Lexer 
+pub struct Lexer
 {
   pub source_code: String,
   pub position: usize,
@@ -133,11 +106,11 @@ pub struct Lexer
   pub col: usize,
 }
 
-impl Lexer 
+impl Lexer
 {
-  pub fn new(source_code: &str) -> Lexer 
+  pub fn new(source_code: &str) -> Lexer
   {
-    Lexer 
+    Lexer
     {
       source_code: source_code.to_string(),
       position: 0,
@@ -145,106 +118,96 @@ impl Lexer
       col: 0,
     }
   }
-  
-  fn next_char(&self, offset: usize) -> Option<char> 
+
+  fn next_char(&self, offset: usize) -> Option<char>
   {
-    if self.position >= self.source_code.len() 
+    if self.position >= self.source_code.len()
     {
       return None;
     }
-    
+
     self.source_code[self.position..].chars().nth(offset)
   }
-  
-  fn make_span(&self, start_pos: usize) -> SourceSpan 
+
+  fn make_span(&self, start_pos: usize) -> SourceSpan
   {
     let end_pos = self.position;
     SourceSpan::new(start_pos.into(), (end_pos - start_pos).into())
   }
-  
-  fn make_token(
-    &self,
-    kind: TokenKind,
-    lexed_value: String,
-    start_pos: usize,
-    start_line: usize,
-    start_col: usize,
-  ) -> Token 
+
+  fn make_token(&self, kind: TokenKind, lexed_value: String, start_pos: usize) -> Token
   {
-    Token 
+    Token
     {
       token_kind: kind,
       lexed_value,
       span: self.make_span(start_pos),
-      line: start_line,
-      col: start_col,
     }
   }
-  
-  pub fn peek(&self) -> Option<char> 
+
+  pub fn peek(&self) -> Option<char>
   {
     self.next_char(0)
   }
-  
-  pub fn advance(&mut self) -> Option<char> 
+
+  pub fn advance(&mut self) -> Option<char>
   {
     let ch = self.peek()?;
     let ch_len = ch.len_utf8();
-    
     self.position += ch_len;
-    
-    if ch == '\n' 
+
+    if ch == '\n'
     {
       self.line += 1;
       self.col = 0;
-    } else 
+    } else
     {
       self.col += 1;
     }
-    
     Some(ch)
   }
-  
-  pub fn skip_whitespace_and_comments(&mut self) 
+
+  pub fn skip_whitespace_and_comments(&mut self)
   {
-    loop 
+    loop
     {
       let Some(ch) = self.peek() else { break };
-      
-      if ch.is_whitespace() 
+
+      if ch.is_whitespace()
       {
         self.advance();
         continue;
       }
-      
+
       // comments
-      if ch == '/' 
+      if ch == '/'
       {
-        match self.next_char(1) 
+        match self.next_char(1)
         {
-          Some('/') => 
+          Some('/') =>
           {
             // line comment
             self.advance();
             self.advance();
-            while let Some(c) = self.peek() 
+            while let Some(c) = self.peek()
             {
-              if c == '\n' 
+              if c == '\n'
               {
                 break;
               }
               self.advance();
             }
             continue;
-          }
-          Some('*') => 
+          },
+
+          Some('*') =>
           {
             // block comment
             self.advance();
             self.advance();
-            while let Some(c) = self.peek() 
+            while let Some(c) = self.peek()
             {
-              if c == '*' && self.next_char(1) == Some('/') 
+              if c == '*' && self.next_char(1) == Some('/')
               {
                 self.advance();
                 self.advance();
@@ -253,51 +216,49 @@ impl Lexer
               self.advance();
             }
             continue;
-          }
+          },
+
           _ => {}
         }
       }
-      
+
       break;
     }
   }
-  
-  pub fn next_token(&mut self) -> LexResult<Option<Token>> 
+
+  pub fn next_token(&mut self) -> LexResult<Option<Token>>
   {
     self.skip_whitespace_and_comments();
-    
-    if self.position >= self.source_code.len() 
+
+    if self.position >= self.source_code.len()
     {
       return Ok(None);
     }
-    
+
     let start_pos = self.position;
-    let start_line = self.line;
-    let start_col = self.col;
-    
+
     let ch = self.peek().unwrap();
-    
+
     // Identifiers & keywords
-    if ch.is_ascii_alphabetic() || ch == '_' 
+    if ch.is_ascii_alphabetic() || ch == '_'
     {
       let mut ident = String::new();
-      
-      while let Some(c) = self.peek() 
+
+      while let Some(c) = self.peek()
       {
-        if c.is_ascii_alphanumeric() || c == '_' 
+        if c.is_ascii_alphanumeric() || c == '_'
         {
           ident.push(c);
           self.advance();
-        } else 
+        } else
         {
           break;
         }
       }
-      
-      let kind = match ident.as_str() 
+
+      let kind = match ident.as_str()
       {
         "entry" => TokenKind::Entry,
-        "include" => TokenKind::Include,
         "fn" => TokenKind::Function,
         "return" => TokenKind::Return,
         "let" => TokenKind::Let,
@@ -312,9 +273,7 @@ impl Lexer
         "as" => TokenKind::As,
         "print" => TokenKind::Print,
         "println" => TokenKind::Println,
-        "read" => TokenKind::Read,
         "repeat" => TokenKind::Repeat,
-        "clear" => TokenKind::Clear,
         "number" => TokenKind::NumberType,
         "string" => TokenKind::StringType,
         "bool" => TokenKind::BoolType,
@@ -324,24 +283,22 @@ impl Lexer
         "OR" => TokenKind::KeywordOr,
         "NOT" => TokenKind::KeywordNot,
         "true" | "false" => TokenKind::BoolLiteral,
+        "_" => TokenKind::Underscore,
         _ => TokenKind::Identifier,
       };
-      
-      return Ok(Some
-      (
-        self.make_token(kind, ident, start_pos, start_line, start_col),
-      ));
+
+      return Ok(Some(self.make_token(kind, ident, start_pos)));
     }
-    
+
     // Number
-    if ch.is_ascii_digit() 
+    if ch.is_ascii_digit()
     {
       let mut value = String::new();
       let mut seen_dot = false;
 
-      while let Some(c) = self.peek() 
+      while let Some(c) = self.peek()
       {
-        if c.is_ascii_digit() 
+        if c.is_ascii_digit()
         {
           value.push(c);
           self.advance();
@@ -350,7 +307,7 @@ impl Lexer
           seen_dot = true;
           value.push(c);
           self.advance();
-        } else 
+        } else
         {
           break;
         }
@@ -359,73 +316,66 @@ impl Lexer
       return Ok(Some(self.make_token(
         TokenKind::NumberLiteral,
         value,
-        start_pos,
-        start_line,
-        start_col,
+        start_pos
       )));
     }
+
     // String literals
-    if ch == '"' 
+    if ch == '"'
     {
       self.advance(); // opening quote
       let mut string_val = String::new();
-      
-      while let Some(c) = self.peek() 
+
+      while let Some(c) = self.peek()
       {
-        if c == '"' 
+        if c == '"'
         {
           self.advance(); // closing quote
           return Ok(Some(self.make_token(
             TokenKind::StringLiteral,
             string_val,
-            start_pos,
-            start_line,
-            start_col,
+            start_pos
           )));
         }
-        
+
         string_val.push(c);
         self.advance();
       }
-      
-      return Err(LexError::UnterminatedString 
+
+      return Err(LexError::UnterminatedString
       {
         span: SourceSpan::new(start_pos.into(), 1usize.into()),
       });
     }
-    
-    if ch == '.' && self.next_char(1) == Some('.') 
+
+    if ch == '.' && self.next_char(1) == Some('.')
     {
-      if self.next_char(2) == Some('=') 
+      if self.next_char(2) == Some('=')
       {
         self.advance();
         self.advance();
         self.advance();
-        
+
         return Ok(Some(self.make_token(
           TokenKind::RangeInclusive,
           "..=".to_string(),
-          start_pos,
-          start_line,
-          start_col,
+          start_pos
         )));
-      } else 
+      } else
       {
         self.advance();
         self.advance();
         return Ok(Some(self.make_token(
           TokenKind::RangeExclusive,
           "..".to_string(),
-          start_pos,
-          start_line,
-          start_col,
+          start_pos
         )));
       }
     }
-    
+
     // Two-character operators
     let two = format!("{}{}", ch, self.next_char(1).unwrap_or('\0'));
-    let kind = match two.as_str() 
+    let kind = match two.as_str()
     {
       "==" => Some(TokenKind::Equal),
       "!=" => Some(TokenKind::NotEqual),
@@ -442,19 +392,17 @@ impl Lexer
       "=>" => Some(TokenKind::Arrow),
       _ => None,
     };
-    
-    if let Some(token_kind) = kind 
+
+    if let Some(token_kind) = kind
     {
       self.advance();
       self.advance();
-      return Ok(Some(
-        self.make_token(token_kind, two, start_pos, start_line, start_col),
-      ));
+      return Ok(Some(self.make_token(token_kind, two, start_pos)));
     }
-    
+
     // Single-character tokens
     self.advance();
-    let token_kind = match ch 
+    let token_kind = match ch
     {
       '=' => TokenKind::Assign,
       '+' => TokenKind::Plus,
@@ -478,43 +426,39 @@ impl Lexer
       '<' => TokenKind::Less,
       '>' => TokenKind::Greater,
 
-      _ => 
+      _ =>
       {
-        return Err(LexError::UnexpectedCharacter 
+        return Err(LexError::UnexpectedCharacter
         {
           ch,
           span: SourceSpan::new(start_pos.into(), ch.len_utf8().into()),
         });
       }
     };
-    
+
     Ok(Some(self.make_token(
       token_kind,
       ch.to_string(),
-      start_pos,
-      start_line,
-      start_col,
+      start_pos
     )))
   }
-  
-  pub fn tokenize(&mut self) -> LexResult<Vec<Token>> 
+
+  pub fn tokenize(&mut self) -> LexResult<Vec<Token>>
   {
     let mut tokens: Vec<Token> = Vec::new();
-    
-    while let Some(token) = self.next_token()? 
+
+    while let Some(token) = self.next_token()?
     {
       tokens.push(token);
     }
-    
-    tokens.push(Token 
+
+    tokens.push(Token
     {
       token_kind: TokenKind::EndOfFile,
       lexed_value: String::new(),
-      span: SourceSpan::new(self.position.into(), 0usize.into()),
-      line: self.line,
-      col: self.col,
+      span: SourceSpan::new(self.position.into(), 0usize.into())
     });
-    
+
     Ok(tokens)
   }
 }

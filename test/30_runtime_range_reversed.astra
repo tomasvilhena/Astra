@@ -1,0 +1,6 @@
+// Range where left > right is invalid
+entry "main";
+
+fn main(): void {
+  let r: array = 10..3;
+}

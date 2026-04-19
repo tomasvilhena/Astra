@@ -1,0 +1,6 @@
+// clear() takes no arguments
+entry "main";
+
+fn main(): void {
+  clear(1);
+}

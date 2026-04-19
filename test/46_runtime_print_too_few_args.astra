@@ -1,0 +1,7 @@
+// Format string has three @ but only one value is passed
+entry "main";
+
+fn main(): void {
+  let a: number = 1;
+  println("@ @ @", a);
+}

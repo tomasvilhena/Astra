@@ -1,0 +1,7 @@
+// println with a variable but no format string with @ placeholder
+entry "main";
+
+fn main(): void {
+  let x: number = 42;
+  println(x);
+}

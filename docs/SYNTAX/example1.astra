@@ -7,13 +7,6 @@ entry "main";
 
 /* Multi-line comment */
 // ------------------------------
-// include
-// ------------------------------
-// Allows importing libraries.
-// Libraries are written in Astra syntax as well.
-// A library cannot define an entry point (no main). #include "std.astra" #include "math.astra"
-
-// ------------------------------
 // Functions
 // ------------------------------
 // Functions are declared with the fn keyword.

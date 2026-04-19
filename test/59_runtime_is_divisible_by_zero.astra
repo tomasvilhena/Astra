@@ -1,0 +1,6 @@
+entry "main";
+
+fn main(): void {
+  let n: number = 10;
+  let result: bool = n.is_divisible(0);
+}

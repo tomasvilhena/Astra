@@ -1,0 +1,7 @@
+// -= is not supported for strings
+entry "main";
+
+fn main(): void {
+  let x: string = "hello";
+  x -= "world";
+}

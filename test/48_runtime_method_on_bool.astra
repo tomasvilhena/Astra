@@ -1,0 +1,7 @@
+// Booleans have no methods
+entry "main";
+
+fn main(): void {
+  let flag: bool = true;
+  flag.length();
+}

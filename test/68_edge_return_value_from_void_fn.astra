@@ -1,0 +1,13 @@
+// Returning a value from a void function -- the language has no static
+// return-type checking, so this silently succeeds. The returned value is
+// discarded by the caller. This tests whether the runtime panics or handles it.
+entry "main";
+
+fn supposed_to_be_void(): void {
+  return 42;
+}
+
+fn main(): void {
+  supposed_to_be_void();
+  println("no error was raised");
+}

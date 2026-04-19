@@ -1,0 +1,7 @@
+// split() requires a string delimiter, not a number
+entry "main";
+
+fn main(): void {
+  let text: string = "a,b,c";
+  let parts: array = text.split(2);
+}

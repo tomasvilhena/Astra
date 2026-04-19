@@ -1,0 +1,13 @@
+// A match where no arm matches and there is no wildcard _
+// Expected: silently falls through (ControlFlow::None). This tests whether
+// that silent no-op is intentional or a missing error.
+entry "main";
+
+fn main(): void {
+  let n: number = 7;
+  match n {
+    1 => { println("one"); }
+    2 => { println("two"); }
+  }
+  println("after match -- did we get here?");
+}

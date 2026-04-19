@@ -1,0 +1,7 @@
+// Indexing with a string key is not valid
+entry "main";
+
+fn main(): void {
+  let nums: array = [10, 20, 30];
+  let x: number = nums["zero"];
+}

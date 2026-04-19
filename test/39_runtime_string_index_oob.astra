@@ -1,0 +1,6 @@
+entry "main";
+
+fn main(): void {
+  let text: string = "hi";
+  let ch: string = text[99];
+}

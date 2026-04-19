@@ -1,0 +1,6 @@
+// Comparing a string to a number with < is not allowed
+entry "main";
+
+fn main(): void {
+  let result: bool = "hello" > 5;
+}

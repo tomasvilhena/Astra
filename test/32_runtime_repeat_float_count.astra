@@ -1,0 +1,7 @@
+entry "main";
+
+fn main(): void {
+  repeat 3.7 as i {
+    println("i = @", i);
+  }
+}

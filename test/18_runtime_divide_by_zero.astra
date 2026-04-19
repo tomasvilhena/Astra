@@ -1,0 +1,6 @@
+entry "main";
+
+fn main(): void {
+  let x: number = 10 / 0;
+  println("@ ", x);
+}

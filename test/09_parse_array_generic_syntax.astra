@@ -1,0 +1,6 @@
+// The syntax demo shows array<number> but the parser does not support it
+entry "main";
+
+fn main(): void {
+  let nums: array<number> = [1, 2, 3];
+}

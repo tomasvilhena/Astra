@@ -1,0 +1,7 @@
+// Reassigning a number variable with a string should fail
+entry "main";
+
+fn main(): void {
+  let x: number = 5;
+  x = "oops";
+}

@@ -1,0 +1,8 @@
+// bool + bool is not a supported operation
+entry "main";
+
+fn main(): void {
+  let a: bool = true;
+  let b: bool = false;
+  let c: bool = a + b;
+}

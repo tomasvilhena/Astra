@@ -3,6 +3,18 @@ name = "astra"
 version = "0.1.0"
 edition = "2024"
 
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+panic = "abort"
+strip = true
+
 [dependencies]
 miette = {version = "7.6.0", features = ["fancy"]}
 thiserror = "2"
+clap = {version = "4.6.1", features = ["derive"]}
+colored = "3.1.1"
+text_io = "0.1.13"
+tabled = "0.20.0"
+rustc-hash = "2.1.2"
