@@ -3,4 +3,5 @@ entry "hello_world";
 fn hello_world(): void
 {
   println("Hello World");
+  let x: number;
 }

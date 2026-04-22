@@ -1,6 +1,6 @@
 # Bug 02 — `let x: T;` without an initializer always errors
 
-- [ ] **Fixed**
+- [X] **Fixed**
 - **Severity:** 🔴 Critical
 - **Component:** Interpreter (statement execution)
 - **File:** `src/runtime/interpreter.rs`
