@@ -956,6 +956,37 @@ impl Parser
 
     Ok(Stmt::Assign { target, op, value })
   }
+  
+  fn parse_assign_tail(&mut self, left: Expr, left_span: SourceSpan) -> ParseResult<Stmt> 
+  {
+    let target = match left
+    {
+      Expr::Identifier(name) => AssignTarget::Variable(name),
+      Expr::Index { object, index } => AssignTarget::Index { object: *object, index: *index },
+      _ => return Err(ParseError::InvalidAssignmentTarget
+      {
+        span: left_span,
+      }),
+    };
+
+    let op_token = self.advance_or_eof("assignment operator")?;
+    let op = match op_token.token_kind
+    {
+      TokenKind::Assign => AssignOperator::Assign,
+      TokenKind::PlusEqual => AssignOperator::PlusAssign,
+      TokenKind::MinusEqual => AssignOperator::MinusAssign,
+      TokenKind::StarEqual => AssignOperator::StarAssign,
+      TokenKind::SlashEqual => AssignOperator::SlashAssign,
+      TokenKind::PercentEqual => AssignOperator::PercentAssign,
+      TokenKind::CaretEqual => AssignOperator::CaretAssign,
+      _ => unreachable!(),
+    };
+
+    let value = self.parse_expr(0)?;
+    self.expect(TokenKind::Semicolon)?;
+
+    Ok(Stmt::Assign { target, op, value })
+  }
 
   fn parse_stmt(&mut self) -> ParseResult<Stmt>
   {
@@ -990,8 +1021,30 @@ impl Parser
               | TokenKind::SlashEqual
               | TokenKind::PercentEqual
               | TokenKind::CaretEqual => return self.parse_assign_stmt(),
-
-              _ => {},
+              
+              _ => 
+              {
+                let position = self.position;
+                let expr = self.parse_expr(0)?;
+                
+                if let Some(token) = self.peek() 
+                {
+                  if matches!(token.token_kind, 
+                    TokenKind::Assign       | 
+                    TokenKind::PlusEqual    | 
+                    TokenKind::MinusEqual   | 
+                    TokenKind::StarEqual    | 
+                    TokenKind::SlashEqual   | 
+                    TokenKind::PercentEqual | 
+                    TokenKind::CaretEqual) 
+                  {
+                    return self.parse_assign_tail(expr, self.tokens[position].span);
+                  }
+                }
+               
+               self.expect(TokenKind::Semicolon)?;
+               return Ok(Stmt::ExprStmt(expr)); 
+              },
             }
           }
         }
