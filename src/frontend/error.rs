@@ -115,6 +115,17 @@ pub enum ParseError
     #[label("this expression cannot be assigned to")]
     span: SourceSpan,
   },
+  
+  #[error("Invalid location for the declaration of a function")]
+  #[diagnostic(
+    code(parser::invalid_function_declaration_location),
+    help("A function should not be declared inside another function, the correct way would be to declare it outside the current function and then call it")
+  )]
+  InvalidFunctionDeclarationLocation
+  {
+    #[label("this keyword is not allowed here: ")]
+    span: SourceSpan,
+  },
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;

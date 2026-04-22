@@ -766,7 +766,7 @@ impl Parser
             });
           }
 
-          let stmt = self.parse_stmt()?;
+          let stmt = self.parse_stmt(true)?;
           ast.push(stmt);
         }
       }
@@ -988,15 +988,27 @@ impl Parser
     Ok(Stmt::Assign { target, op, value })
   }
 
-  fn parse_stmt(&mut self) -> ParseResult<Stmt>
-  {
+  fn parse_stmt(&mut self, allowed_function_declaration: bool) -> ParseResult<Stmt>
+  { 
     let token = self.peek_or_eof("statement")?;
+    let span = token.span;
 
     match token.token_kind
     {
       TokenKind::Let => self.parse_let_stmt(),
       TokenKind::Print | TokenKind::Println => self.parse_print_stmt(),
-      TokenKind::Function => self.parse_function_stmt(),
+      TokenKind::Function => 
+      {
+        if allowed_function_declaration == false 
+        {
+          return Err(ParseError::InvalidFunctionDeclarationLocation 
+          { 
+            span: span,
+          })
+        }
+        
+        self.parse_function_stmt()
+      },
       TokenKind::If => self.parse_if_stmt(),
       TokenKind::While => self.parse_while_stmt(),
       TokenKind::Return => self.parse_return_stmt(),
@@ -1074,7 +1086,7 @@ impl Parser
 
     while self.peek_or_eof("}")?.token_kind != TokenKind::RightBrace
     {
-      let stmt = self.parse_stmt()?;
+      let stmt = self.parse_stmt(false)?;
       statements.push(stmt);
     }
 
