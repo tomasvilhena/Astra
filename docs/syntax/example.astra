@@ -3,7 +3,7 @@ entry "main";
 // Astra Programming Language Syntax Demo
 // ==============================
 
-// Single-line comment
+// Singles-line comment
 
 /* Multi-line comment */
 // ------------------------------
