@@ -1,0 +1,54 @@
+entry "main";
+
+fn print_board(board: array): void
+{
+  println("+---+---+---+");
+  repeat board.length() as i
+  {
+    print("| ");
+    if (board[i] == 1)
+    {
+      print("X");
+    } else if (board[i] == 2)
+    {
+      print("O");
+    } else
+    {
+      print("@", (i+1));
+    }
+
+    if ((i+1) % 3 == 0)
+    {
+      println(" |");
+      println("+---+---+---+");
+    } else
+    {
+      print(" ");
+    }
+  }
+}
+
+fn do_move(board: array, player: number): array
+{
+  while (true)
+  {
+    let position: number = read("Place to Play in: ").to_number();
+    repeat board.lenght() as i
+    {
+      if (board[i] == position)
+      {
+        board[i] = player;
+      }
+    }
+  }
+
+}
+
+fn main(): void
+{
+  let board: array = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+  print_board(board);
+
+  do_move(board, 1);
+  print_board(board);
+}
