@@ -873,7 +873,7 @@ impl Interpreter
         {
           let actual_type = evaluated.type_name();
 
-          if declared_type != actual_type
+          if declared_type != actual_type && actual_type != "void"
           {
             return Err(InterpreterError::TypeMismatch
             {
