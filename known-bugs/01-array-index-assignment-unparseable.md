@@ -1,6 +1,6 @@
 # Bug 01 — Array element assignment (`arr[i] = v`) is unparseable
 
-- [ ] **Fixed**
+- [X] **Fixed**
 - **Severity:** 🔴 Critical
 - **Component:** Parser
 - **File:** `src/frontend/parser.rs`
