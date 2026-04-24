@@ -32,7 +32,7 @@ struct FunctionDef
 #[derive(Debug, Clone)]
 struct CallFrame
 {
-  locals: FxHashMap<String, Value>,
+  scopes: Vec<FxHashMap<String, Value>>,
 }
 
 impl Interpreter
@@ -139,8 +139,11 @@ impl Interpreter
       function: entry.clone(),
     })?;
 
+    let frame = CallFrame { scopes: vec![FxHashMap::default()] };
+    self.call_stack.push(frame);
     let flow = self.exec_block(&entry_fn.body)?;
-
+    self.call_stack.pop();
+    
     match flow
     {
       ControlFlow::None | ControlFlow::Return(_) => Ok(()),
@@ -186,18 +189,7 @@ impl Interpreter
       Expr::Number(value) => Ok(Value::Number(*value)),
       Expr::Bool(value) => Ok(Value::Bool(*value)),
       Expr::String(value) => Ok(Value::String(value.clone())),
-      Expr::Identifier(name) =>
-      {
-        if let Some(frame) = self.call_stack.last()
-        {
-          if let Some(value) = frame.locals.get(name)
-          {
-            return Ok(value.clone());
-          }
-        }
-
-        self.global.get(name).cloned().ok_or(InterpreterError::UndefinedVariable { name: name.clone() })
-      },
+      Expr::Identifier(name) => self.get_var(name),
 
       Expr::ArrayLiteral(items) =>
       {
@@ -336,11 +328,11 @@ impl Interpreter
               });
             }
 
-            let mut frame = CallFrame {locals: FxHashMap::default()};
+            let mut frame = CallFrame {scopes: vec![FxHashMap::default()]};
 
             for (index, param) in params.iter().enumerate()
             {
-              frame.locals.insert(param.clone(), evaluated_args[index].clone());
+              frame.scopes.last_mut().unwrap().insert(param.clone(), evaluated_args[index].clone());
             }
 
             self.call_stack.push(frame);
@@ -1026,6 +1018,11 @@ impl Interpreter
             }
 
             let repeat_count = value as usize;
+            
+            if let Some(frame) = self.call_stack.last_mut() 
+            {
+              frame.scopes.push(FxHashMap::default());
+            }
 
             for index  in 0..repeat_count
             {
@@ -1039,9 +1036,22 @@ impl Interpreter
               {
                 ControlFlow::Break => break,
                 ControlFlow::Continue => continue,
-                ControlFlow::Return(value) => {return Ok(ControlFlow::Return(value))},
+                ControlFlow::Return(value) => 
+                {
+                  if let Some(frame) = self.call_stack.last_mut() 
+                  {
+                    frame.scopes.pop();
+                  }
+                  
+                  return Ok(ControlFlow::Return(value))
+                },
                 ControlFlow::None => continue,
               }
+            }
+            
+            if let Some(frame) = self.call_stack.last_mut() 
+            {
+              frame.scopes.pop();
             }
           }
 
@@ -1162,26 +1172,52 @@ impl Interpreter
 
   fn exec_block(&mut self, body: &[Stmt]) -> RuntimeError<ControlFlow>
   {
-    for stmt in body
+    if let Some(frame) = self.call_stack.last_mut() 
     {
+      frame.scopes.push(FxHashMap::default());
+    }
+    
+    let mut flow = ControlFlow::None;
+    
+    for stmt in body
+    { 
       let result = self.exec_stmt(stmt)?;
       match result
       {
         ControlFlow::None => continue,
-        ControlFlow::Break  => return Ok(ControlFlow::Break),
-        ControlFlow::Continue => return Ok(ControlFlow::Continue),
-        ControlFlow::Return(value) => return Ok(ControlFlow::Return(value)),
+        ControlFlow::Break  => 
+        {
+          flow = ControlFlow::Break;
+          break;
+        },
+        
+        ControlFlow::Continue => 
+        {
+          flow = ControlFlow::Continue;
+          break;
+        },
+        
+        ControlFlow::Return(value) => 
+        {
+          flow = ControlFlow::Return(value);
+          break;
+        },
       }
     }
+    
+    if let Some(frame) = self.call_stack.last_mut() 
+    {
+      frame.scopes.pop();
+    }
 
-    Ok(ControlFlow::None)
+    Ok(flow)
   }
 
   fn set_var(&mut self, name: String, value: Value)
   {
     if let Some(frame) = self.call_stack.last_mut()
     {
-      frame.locals.insert(name, value);
+      frame.scopes.last_mut().unwrap().insert(name, value);
     } else
     {
       self.global.insert(name, value);
@@ -1192,9 +1228,12 @@ impl Interpreter
   {
     if let Some(frame) = self.call_stack.last()
     {
-      if let Some(value) = frame.locals.get(name)
+      for scope in frame.scopes.iter().rev() 
       {
-        return Ok(value.clone());
+        if let Some(value) = scope.get(name) 
+        {
+          return Ok(value.clone());
+        }
       }
     }
 
@@ -1214,10 +1253,14 @@ impl Interpreter
   {
     if let Some(frame) = self.call_stack.last_mut()
     {
-      if frame.locals.contains_key(name)
+      
+      for scope in frame.scopes.iter_mut().rev()
       {
-        frame.locals.insert(name.to_string(), value);
-        return Ok(());
+        if scope.contains_key(name) 
+        {
+          scope.insert(name.to_string(), value);
+          return Ok(());
+        }
       }
     }
 

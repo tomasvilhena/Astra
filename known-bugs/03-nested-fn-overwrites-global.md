@@ -1,6 +1,6 @@
 # Bug 03 — Nested `fn` declarations silently overwrite global functions
 
-- [ ] **Fixed**
+- [X] **Fixed**
 - **Severity:** 🔴 Critical
 - **Component:** Interpreter (function registry / scoping)
 - **File:** `src/runtime/interpreter.rs`
