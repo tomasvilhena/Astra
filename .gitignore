@@ -18,7 +18,6 @@
 /.vercelignore
 /.DS_Store
 *.log
-*.lock
 *.tsbuildinfo
 *.zip
 *.tar.gz
