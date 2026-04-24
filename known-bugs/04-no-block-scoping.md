@@ -1,6 +1,6 @@
 # Bug 04 — `let` bindings have no block scoping
 
-- [ ] **Fixed**
+- [X] **Fixed**
 - **Severity:** 🟠 Major
 - **Component:** Interpreter (variable scope)
 - **File:** `src/runtime/interpreter.rs`
