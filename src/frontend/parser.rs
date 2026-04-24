@@ -67,7 +67,7 @@ impl Parser
     }
   }
 
-  fn insertion_after_previus(&self) -> SourceSpan
+  fn insertion_after_previous(&self) -> SourceSpan
   {
     if self.position > 0
     {
@@ -105,7 +105,7 @@ impl Parser
         TokenKind::Semicolon => Err(ParseError::MissingToken
         {
           expected,
-          span: self.insertion_after_previus(),
+          span: self.insertion_after_previous(),
         }),
 
         TokenKind::RightBrace
@@ -920,7 +920,7 @@ impl Parser
 
   fn parse_assign_stmt(&mut self) -> ParseResult<Stmt>
   {
-    let left_span = self.peek_or_eof("assignemnt Operator")?.span;
+    let left_span = self.peek_or_eof("assignment Operator")?.span;
 
     let left =
     {
