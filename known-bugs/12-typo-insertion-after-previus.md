@@ -1,6 +1,6 @@
 # Bug 12 — Typo: `insertion_after_previus` (and one other)
 
-- [ ] **Fixed**
+- [X] **Fixed**
 - **Severity:** 🟡 Minor (cosmetic)
 - **Component:** Parser
 - **File:** `src/frontend/parser.rs`
