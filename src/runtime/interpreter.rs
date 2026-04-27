@@ -1600,7 +1600,6 @@ impl Interpreter
       Pattern::Number(number) => if *value == Value::Number(*number) {true} else {false},
       Pattern::String(string) => if *value == Value::String(string.clone()) {true} else {false},
       Pattern::Bool(boolean) => if *value == Value::Bool(*boolean) {true} else {false},
-      Pattern::Identifier(_) => false,
     };
   }
 }

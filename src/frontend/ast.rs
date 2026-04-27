@@ -45,7 +45,6 @@ pub enum Pattern
   Number(f64),
   Bool(bool),
   String(String),
-  Identifier(String),
   Wildcard,
 }
 
