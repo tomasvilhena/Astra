@@ -1,6 +1,6 @@
 # Bug 10 — `HeaderOrderViolation` for a second `entry` is unreachable
 
-- [ ] **Fixed**
+- [X] **Fixed**
 - **Severity:** 🟡 Minor (dead branch)
 - **Component:** Interpreter (program pre-pass)
 - **File:** `src/runtime/interpreter.rs`

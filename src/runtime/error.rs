@@ -367,16 +367,6 @@ pub enum InterpreterError
   )]
   DuplicateEntry,
 
-  #[error("'{item}' cannot appear here")]
-  #[diagnostic(
-    code(runtime::header_order_violation),
-    help("The `entry` directive must come before any functions or statements")
-  )]
-  HeaderOrderViolation
-  {
-    item: String,
-  },
-
   #[error("Function `{name}` is already defined")]
   #[diagnostic(
     code(runtime::duplicate_function),

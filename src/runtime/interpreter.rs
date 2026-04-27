@@ -35,7 +35,7 @@ struct CallFrame
   scopes: Vec<FxHashMap<String, Value>>,
 }
 
-enum ChainRoot 
+pub enum ChainRoot 
 {
   Var(String),
   Index {var: String, index_expr: Expr},
@@ -90,7 +90,6 @@ impl Interpreter
     let mut entry_name: Option<String> = None;
 
     let mut seen_entry: bool = false;
-    let mut header_closed: bool = false;
 
     self.functions.clear();
 
@@ -105,14 +104,6 @@ impl Interpreter
             return Err(InterpreterError::DuplicateEntry);
           }
 
-          if header_closed
-          {
-            return Err(InterpreterError::HeaderOrderViolation
-            {
-              item: "entry".to_string(),
-            });
-          }
-
           seen_entry = true;
           entry_name = Some(name.clone())
         },
@@ -123,8 +114,6 @@ impl Interpreter
           {
             return Err(InterpreterError::MissingEntryPoint{something: "function declaration".to_string()});
           }
-
-          header_closed = true;
 
           if self.functions.contains_key(name)
           {
@@ -160,8 +149,6 @@ impl Interpreter
               something: "top-level statement".to_string(),
             });
           }
-
-          header_closed = true
         },
       }
     }
