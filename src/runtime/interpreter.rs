@@ -35,6 +35,12 @@ struct CallFrame
   scopes: Vec<FxHashMap<String, Value>>,
 }
 
+enum ChainRoot 
+{
+  Var(String),
+  Index {var: String, index_expr: Expr},
+}
+
 impl Interpreter
 {
   pub fn new() -> Self
@@ -44,6 +50,38 @@ impl Interpreter
       global: FxHashMap::default(),
       functions: FxHashMap::default(),
       call_stack: Vec::new(),
+    }
+  }
+  
+  pub fn get_chain_root(&self, expr: &Expr) -> Option<ChainRoot>
+  {
+    match expr 
+    {
+      Expr::Identifier(name) => Some(ChainRoot::Var(name.clone())),
+      
+      Expr::Index { object, index } =>
+      {
+        if let Expr::Identifier(name) = object.as_ref() 
+        {
+          Some(ChainRoot::Index { var: name.clone(), index_expr: (**index).clone() })
+        } else 
+        {
+          None
+        }
+      },
+      
+      Expr::Call { callee, args } => 
+      {
+        if let Expr::Member { object, property } = callee.as_ref() 
+        {
+          self.get_chain_root(object)
+        } else 
+        {
+          None
+        }
+      }
+      
+      _ => {None},
     }
   }
 
@@ -156,6 +194,8 @@ impl Interpreter
       }
     }
   }
+  
+  
 
   fn binary_op_to_str(op: &BinaryOperator) -> &'static str
   {
@@ -372,21 +412,55 @@ impl Interpreter
               evaluated_args.push(self.eval_expr(arg)?);
             }
 
-            match object.as_ref()
+            match self.get_chain_root(object)
             {
-              Expr::Identifier(name) =>
+              Some(ChainRoot::Var(name)) => 
               {
-                let mut receiver = self.eval_expr(object)?;
+                let _ = self.eval_expr(object)?;
+                let mut receiver = self.get_var(&name)?;
                 let result = methods::call_method(&mut receiver, property, evaluated_args)?;
-                self.assign_var(name, receiver)?;
+                self.assign_var(&name, receiver)?;
                 return Ok(result)
               },
-
-              _ =>
+              
+              Some(ChainRoot::Index { var, index_expr }) => 
+              {
+                let _ = self.eval_expr(object)?;
+                let mut array_items = match self.get_var(&var)? 
+                {
+                  Value::Array(value) => value,
+                  other => return Err(InterpreterError::TypeMismatch 
+                  { 
+                    expected: "array".to_string(), 
+                    found: other.type_name().to_string(), 
+                  })
+                };
+                
+                let index = match self.eval_expr(&index_expr)? 
+                {
+                  Value::Number(number) if number.fract() == 0.0 && number >= 0.0 => number as usize,
+                  _ => return Err(InterpreterError::NonValidIndex),
+                };
+                
+                if index >= array_items.len() 
+                {
+                  return Err(InterpreterError::NonValidIndex);
+                }
+                
+                let mut receiver = array_items[index].clone();
+                let result = methods::call_method(&mut receiver, property, evaluated_args)?;
+                
+                array_items[index] = receiver; 
+                self.assign_var(&var, Value::Array(array_items))?;
+                
+                return Ok(result)
+              },
+              
+              None =>
               {
                 let mut receiver = self.eval_expr(object)?;
                 let result = methods::call_method(&mut receiver, property, evaluated_args)?;
-                Ok(result)
+                return Ok(result)
               }
             }
           },
