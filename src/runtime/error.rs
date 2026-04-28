@@ -398,6 +398,17 @@ pub enum InterpreterError
   {
     value: String,
   },
+  
+  #[error("The provided range is either smaller then {min}, bigger then {max} or is infinite")]
+  #[diagnostic(
+    code(runtime::range_limits_surpassed),
+    help("Try and make a smaller range, we dissallow ranges of this magnitude to save of memory and resources")
+  )]
+  RangeLimitsSurpassed
+  {
+    min: f64,
+    max: f64,
+  },
 }
 
 pub type RuntimeError<T> = Result<T, InterpreterError>;

@@ -35,7 +35,7 @@ struct CallFrame
   scopes: Vec<FxHashMap<String, Value>>,
 }
 
-pub enum ChainRoot 
+pub enum ChainRoot
 {
   Var(String),
   Index {var: String, index_expr: Expr},
@@ -52,35 +52,35 @@ impl Interpreter
       call_stack: Vec::new(),
     }
   }
-  
+
   pub fn get_chain_root(&self, expr: &Expr) -> Option<ChainRoot>
   {
-    match expr 
+    match expr
     {
       Expr::Identifier(name) => Some(ChainRoot::Var(name.clone())),
-      
+
       Expr::Index { object, index } =>
       {
-        if let Expr::Identifier(name) = object.as_ref() 
+        if let Expr::Identifier(name) = object.as_ref()
         {
           Some(ChainRoot::Index { var: name.clone(), index_expr: (**index).clone() })
-        } else 
+        } else
         {
           None
         }
       },
-      
-      Expr::Call { callee, args } => 
+
+      Expr::Call { callee, args } =>
       {
-        if let Expr::Member { object, property } = callee.as_ref() 
+        if let Expr::Member { object, property } = callee.as_ref()
         {
           self.get_chain_root(object)
-        } else 
+        } else
         {
           None
         }
       }
-      
+
       _ => {None},
     }
   }
@@ -168,7 +168,7 @@ impl Interpreter
     self.call_stack.push(frame);
     let flow = self.exec_block(&entry_fn.body)?;
     self.call_stack.pop();
-    
+
     match flow
     {
       ControlFlow::None | ControlFlow::Return(_) => Ok(()),
@@ -181,8 +181,8 @@ impl Interpreter
       }
     }
   }
-  
-  
+
+
 
   fn binary_op_to_str(op: &BinaryOperator) -> &'static str
   {
@@ -401,7 +401,7 @@ impl Interpreter
 
             match self.get_chain_root(object)
             {
-              Some(ChainRoot::Var(name)) => 
+              Some(ChainRoot::Var(name)) =>
               {
                 let _ = self.eval_expr(object)?;
                 let mut receiver = self.get_var(&name)?;
@@ -409,40 +409,40 @@ impl Interpreter
                 self.assign_var(&name, receiver)?;
                 return Ok(result)
               },
-              
-              Some(ChainRoot::Index { var, index_expr }) => 
+
+              Some(ChainRoot::Index { var, index_expr }) =>
               {
                 let _ = self.eval_expr(object)?;
-                let mut array_items = match self.get_var(&var)? 
+                let mut array_items = match self.get_var(&var)?
                 {
                   Value::Array(value) => value,
-                  other => return Err(InterpreterError::TypeMismatch 
-                  { 
-                    expected: "array".to_string(), 
-                    found: other.type_name().to_string(), 
+                  other => return Err(InterpreterError::TypeMismatch
+                  {
+                    expected: "array".to_string(),
+                    found: other.type_name().to_string(),
                   })
                 };
-                
-                let index = match self.eval_expr(&index_expr)? 
+
+                let index = match self.eval_expr(&index_expr)?
                 {
                   Value::Number(number) if number.fract() == 0.0 && number >= 0.0 => number as usize,
                   _ => return Err(InterpreterError::NonValidIndex),
                 };
-                
-                if index >= array_items.len() 
+
+                if index >= array_items.len()
                 {
                   return Err(InterpreterError::NonValidIndex);
                 }
-                
+
                 let mut receiver = array_items[index].clone();
                 let result = methods::call_method(&mut receiver, property, evaluated_args)?;
-                
-                array_items[index] = receiver; 
+
+                array_items[index] = receiver;
                 self.assign_var(&var, Value::Array(array_items))?;
-                
+
                 return Ok(result)
               },
-              
+
               None =>
               {
                 let mut receiver = self.eval_expr(object)?;
@@ -858,6 +858,19 @@ impl Interpreter
               });
             }
 
+            if !left.is_finite() || !right.is_finite()
+               || left  < -10_000_000.0 || left  > 10_000_000.0
+               || right < -10_000_000.0 || right > 10_000_000.0
+            {
+              return Err(
+                InterpreterError::RangeLimitsSurpassed
+                {
+                  min: (-10_000_000.0),
+                  max: (10_000_000.0),
+                }
+              );
+            }
+
             let inclusive = matches!(op, &BinaryOperator::RangeInclusive);
             let mut range = Vec::new();
 
@@ -1079,8 +1092,8 @@ impl Interpreter
             }
 
             let repeat_count = value as usize;
-            
-            if let Some(frame) = self.call_stack.last_mut() 
+
+            if let Some(frame) = self.call_stack.last_mut()
             {
               frame.scopes.push(FxHashMap::default());
             }
@@ -1097,20 +1110,20 @@ impl Interpreter
               {
                 ControlFlow::Break => break,
                 ControlFlow::Continue => continue,
-                ControlFlow::Return(value) => 
+                ControlFlow::Return(value) =>
                 {
-                  if let Some(frame) = self.call_stack.last_mut() 
+                  if let Some(frame) = self.call_stack.last_mut()
                   {
                     frame.scopes.pop();
                   }
-                  
+
                   return Ok(ControlFlow::Return(value))
                 },
                 ControlFlow::None => continue,
               }
             }
-            
-            if let Some(frame) = self.call_stack.last_mut() 
+
+            if let Some(frame) = self.call_stack.last_mut()
             {
               frame.scopes.pop();
             }
@@ -1233,40 +1246,40 @@ impl Interpreter
 
   fn exec_block(&mut self, body: &[Stmt]) -> RuntimeError<ControlFlow>
   {
-    if let Some(frame) = self.call_stack.last_mut() 
+    if let Some(frame) = self.call_stack.last_mut()
     {
       frame.scopes.push(FxHashMap::default());
     }
-    
+
     let mut flow = ControlFlow::None;
-    
+
     for stmt in body
-    { 
+    {
       let result = self.exec_stmt(stmt)?;
       match result
       {
         ControlFlow::None => continue,
-        ControlFlow::Break  => 
+        ControlFlow::Break  =>
         {
           flow = ControlFlow::Break;
           break;
         },
-        
-        ControlFlow::Continue => 
+
+        ControlFlow::Continue =>
         {
           flow = ControlFlow::Continue;
           break;
         },
-        
-        ControlFlow::Return(value) => 
+
+        ControlFlow::Return(value) =>
         {
           flow = ControlFlow::Return(value);
           break;
         },
       }
     }
-    
-    if let Some(frame) = self.call_stack.last_mut() 
+
+    if let Some(frame) = self.call_stack.last_mut()
     {
       frame.scopes.pop();
     }
@@ -1289,9 +1302,9 @@ impl Interpreter
   {
     if let Some(frame) = self.call_stack.last()
     {
-      for scope in frame.scopes.iter().rev() 
+      for scope in frame.scopes.iter().rev()
       {
-        if let Some(value) = scope.get(name) 
+        if let Some(value) = scope.get(name)
         {
           return Ok(value.clone());
         }
@@ -1314,10 +1327,10 @@ impl Interpreter
   {
     if let Some(frame) = self.call_stack.last_mut()
     {
-      
+
       for scope in frame.scopes.iter_mut().rev()
       {
-        if scope.contains_key(name) 
+        if scope.contains_key(name)
         {
           scope.insert(name.to_string(), value);
           return Ok(());

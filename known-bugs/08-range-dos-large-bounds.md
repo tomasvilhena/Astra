@@ -1,6 +1,6 @@
 # Bug 08 — Ranges with large bounds can allocate enormous `Vec`s (and silently saturate f64→i32)
 
-- [ ] **Fixed**
+- [X] **Fixed**
 - **Severity:** 🟠 Major
 - **Component:** Interpreter (range evaluation)
 - **File:** `src/runtime/interpreter.rs`
