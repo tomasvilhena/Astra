@@ -1,6 +1,6 @@
 # Bug 07 — Printing an array shows the literal string `[array]`
 
-- [ ] **Fixed**
+- [X] **Fixed**
 - **Severity:** 🟠 Major
 - **Component:** Runtime value formatting
 - **File:** `src/runtime/value.rs`

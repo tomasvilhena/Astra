@@ -1,5 +1,5 @@
 #[derive(Debug, Clone,  PartialEq)]
-pub enum Value 
+pub enum Value
 {
   Number(f64),
   Bool(bool),
@@ -8,11 +8,11 @@ pub enum Value
   Void,
 }
 
-impl Value 
+impl Value
 {
-  pub fn type_name(&self) -> &'static str 
+  pub fn type_name(&self) -> &'static str
   {
-    match self 
+    match self
     {
       Value::Number(_) => "number",
       Value::Bool(_) => "bool",
@@ -22,9 +22,9 @@ impl Value
     }
   }
 
-  pub fn is_truthy(&self) -> bool 
+  pub fn is_truthy(&self) -> bool
   {
-    match self 
+    match self
     {
       Value::Bool(bool) => *bool,
       Value::Number(number) => *number != 0.0,
@@ -35,7 +35,7 @@ impl Value
   }
 }
 
-impl std::fmt::Display for Value 
+impl std::fmt::Display for Value
 {
   fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result
   {
@@ -44,7 +44,23 @@ impl std::fmt::Display for Value
       Value::Number(number) => write!(formatter, "{}", number),
       Value::Bool(boolean) => write!(formatter, "{}", boolean),
       Value::String(string) => write!(formatter, "{}", string),
-      Value::Array(_) => write!(formatter, "[array]"),
+
+      Value::Array(items) =>
+      {
+        write!(formatter, "[")?;
+        for (i, item) in items.iter().enumerate()
+        {
+          if i > 0 { write!(formatter, ", ")?; }
+          match item
+          {
+            Value::String(s) => write!(formatter, "\"{s}\"")?,
+            other             => write!(formatter, "{other}")?,
+          }
+        }
+        
+        write!(formatter, "]")
+      },
+
       Value::Void => write!(formatter, ""),
     }
   }
