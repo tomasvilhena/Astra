@@ -38,6 +38,21 @@ astra --help
 
 …and you should see the CLI.
 
+<details>
+<summary><strong>Uninstall</strong></summary>
+
+<br>
+
+If you ever want to remove Astra:
+
+```bash
+cargo uninstall astra
+```
+
+That removes the binary from `~/.cargo/bin/`. Cargo's source cache may still have a copy of the repo lying around — you can clear it with `cargo cache --autoclean` if you have `cargo-cache` installed, otherwise it's harmless to leave alone.
+
+</details>
+
 ---
 
 ## Hello, world
