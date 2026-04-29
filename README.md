@@ -8,8 +8,9 @@
 
 </div>
 
-> *"We choose to go to the Moon in this decade and do the other things, not because they are easy, but because they are hard."*
-> — **John F. Kennedy**, presumably about something else
+```rust
+// TODO: insert funny quote here
+```
 
 ---
 
