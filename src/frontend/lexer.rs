@@ -167,7 +167,7 @@ impl Lexer
     Some(ch)
   }
 
-  pub fn skip_whitespace_and_comments(&mut self)
+  pub fn skip_whitespace_and_comments(&mut self) -> LexResult<()>
   {
     loop
     {
@@ -201,20 +201,32 @@ impl Lexer
           },
 
           Some('*') =>
-          {
-            // block comment
+          { 
+            let start_position = self.position;
+            let mut is_closed = false;
             self.advance();
             self.advance();
+            
             while let Some(c) = self.peek()
             {
               if c == '*' && self.next_char(1) == Some('/')
               {
                 self.advance();
                 self.advance();
+                is_closed = true;
                 break;
               }
               self.advance();
             }
+            
+            if !is_closed 
+            {
+              return Err(LexError::UnterminatedBlockComment 
+              { 
+                span: SourceSpan::new(start_position.into(), 2usize.into()), 
+              });
+            } 
+            
             continue;
           },
 
@@ -224,11 +236,13 @@ impl Lexer
 
       break;
     }
+    
+    Ok(())
   }
 
   pub fn next_token(&mut self) -> LexResult<Option<Token>>
   {
-    self.skip_whitespace_and_comments();
+    self.skip_whitespace_and_comments()?;
 
     if self.position >= self.source_code.len()
     {

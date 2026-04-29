@@ -1,6 +1,6 @@
 # Bug 06 — Unclosed `/* */` block comment produces a misleading parser error
 
-- [ ] **Fixed**
+- [X] **Fixed**
 - **Severity:** 🟠 Major
 - **Component:** Lexer
 - **File:** `src/frontend/lexer.rs`

@@ -28,6 +28,17 @@ pub enum LexError
     #[label("string opens here but is never closed")]
     span: SourceSpan,
   },
+  
+  #[error("Unterminated block comment")]
+  #[diagnostic(
+    code(lexer::unterminated_block_comment),
+    help("Add a closing `*/` to end the comment")
+  )]
+  UnterminatedBlockComment
+  {
+    #[label("comment opens here but is never closed")]
+    span: SourceSpan,
+  },
 }
 
 pub type LexResult<T> = Result<T, LexError>;

@@ -18,9 +18,9 @@ Index of known bugs in the Astra interpreter. Each bug lives in its own file wit
 | 02 | 🔴 | [`let x: T;` without initializer always fails](02-let-without-initializer-fails.md) | ✅ Closed |
 | 03 | 🔴 | [Nested `fn` overwrites global function silently](03-nested-fn-overwrites-global.md) | ✅ Closed |
 | 04 | 🟠 | [No block scoping for `let`](04-no-block-scoping.md) | ✅ Closed |
-| 05 | 🟠 | [Chained method call drops writeback](05-chained-method-writeback-lost.md) | ☐ open |
-| 06 | 🟠 | [Unclosed block comment produces misleading error](06-unclosed-block-comment.md) | ☐ open |
-| 07 | 🟠 | [Array display is `[array]` placeholder](07-array-display-placeholder.md) | ☐ open |
+| 05 | 🟠 | [Chained method call drops writeback](05-chained-method-writeback-lost.md) | ✅ Closed |
+| 06 | 🟠 | [Unclosed block comment produces misleading error](06-unclosed-block-comment.md) | ✅ Closed |
+| 07 | 🟠 | [Array display is `[array]` placeholder](07-array-display-placeholder.md) | ✅ Closed |
 | 08 | 🟠 | [Range with large bounds can allocate huge `Vec`](08-range-dos-large-bounds.md) | ✅ Closed|
 | 09 | 🟡 | [`Pattern::Identifier` unreachable](09-pattern-identifier-unreachable.md) | ✅ Closed |
 | 10 | 🟡 | [`HeaderOrderViolation` for Entry unreachable](10-header-order-violation-unreachable.md) | ✅ Closed |
