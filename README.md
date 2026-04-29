@@ -8,19 +8,22 @@
 
 </div>
 
+> *"We choose to go to the Moon in this decade and do the other things, not because they are easy, but because they are hard."*
+> — **John F. Kennedy**, presumably about something else
+
 ---
 
 ## About
 
-Astra is a tiny interpreted language created by **Tomas Vilhena** as a school project. It is intentionally **basic**: a handful of types, a few control-flow constructs, and a clean syntax that should feel familiar if you have ever read C, Rust, or JavaScript. The interpreter is written in Rust and ships as a single CLI binary.
+Astra is a tiny interpreted language I built as a school project. I made it intentionally **basic**: a handful of types, a few control-flow constructs, and a clean syntax that should feel familiar if you have ever read C, Rust, or JavaScript. I wrote the interpreter in Rust and it ships as a single CLI binary.
 
-This is not a production language. It is a learning project — small enough to read end-to-end, useful enough to write little programs in.
+This isn't a production language. It's a learning project for me — small enough to read end-to-end, useful enough to write little programs in.
 
 ---
 
 ## Install
 
-Astra installs through Cargo. If you have a Rust toolchain, one command is all you need:
+I distribute Astra through Cargo. If you have a Rust toolchain, one command is all you need:
 
 ```bash
 cargo install --git https://github.com/tomasvilhena/Astra
@@ -80,7 +83,7 @@ fn main(): void {
 }
 ```
 
-Notable bits:
+A few notes on what I picked:
 - Variables are declared with `let name: type = value;` — types are explicit.
 - Functions use `fn name(args): return_type { ... }`.
 - `print` has no formatter; `println` uses `@` as the placeholder for any value.
@@ -185,12 +188,4 @@ cargo build --release
 
 ## Project status
 
-Astra is a school project. The interpreter, parser, and lexer are all hand-written in safe Rust. There is no JIT, no module system, and no plan to add one — it stays small on purpose. Bug fixes and small features land in `known-bugs/` and follow a public issue → fix → verify cycle.
-
----
-
-<div align="center">
-
-Made with too much coffee by **Tomas Vilhena**.
-
-</div>
+Astra is my school project. I hand-wrote the interpreter, parser, and lexer in safe Rust. There's no JIT, no module system, and I don't plan to add one — I want it to stay small on purpose. I track bug fixes in [`known-bugs/`](known-bugs/) and follow my own issue → fix → verify cycle.
