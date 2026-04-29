@@ -1,41 +1,196 @@
+<div align="center">
+
+<img src="assets/astra.jpeg" alt="Astra" width="240" />
+
 # Astra
-Programming Language
 
-## Project Task Board
+*A small, friendly programming language — written in Rust.*
 
-- [x] Runtime module exported (`src/runtime/mod.rs`)
-- [x] `Value` enum migrated to `Number` model (`Number`, `Bool`, `String`, `Array`, `Void`) (`src/runtime/value.rs`)
-- [x] `Value::type_name()` helper (`src/runtime/value.rs`)
-- [x] `Value::is_truthy()` helper (`src/runtime/value.rs`)
-- [x] Interpreter skeleton (`Interpreter` struct, error enum, constructor) (`src/runtime/interpreter.rs`)
-- [x] `eval_expr` basic literal arms (`Number`, `Bool`, `String`) (`src/runtime/interpreter.rs`)
-- [x] `eval_expr` identifier lookup (local frame -> global -> undefined error) (`src/runtime/interpreter.rs`)
-- [x] `eval_expr` array literal evaluation (`src/runtime/interpreter.rs`)
-- [x] `eval_expr` unary evaluation (`Negative`, `Not`, `KeywordNot`) (`src/runtime/interpreter.rs`)
-- [x] Frontend numeric migration (`NumberType`, `NumberLiteral`, `Expr::Number`, parser updates) (`src/frontend/lexer.rs`, `src/frontend/ast.rs`, `src/frontend/parser.rs`)
-- [x] Runtime module wired in main (`mod runtime;`) (`src/main.rs`)
-- [x] `eval_binary` fallback now uses valid operator string mapping (`src/runtime/interpreter.rs`)
-- [x] `eval_binary` arithmetic behavior (`+ - * / % ^`) with type checks (`src/runtime/interpreter.rs`)
-- [x] Divide/modulo-by-zero runtime errors (`src/runtime/interpreter.rs`)
-- [x] Comparisons (`== != < <= > >=`) in `eval_binary` (`src/runtime/interpreter.rs`)
+</div>
 
-- [x] Remove `return a;` from binary expression arm and return proper `RuntimeResult<Value>` (`src/runtime/interpreter.rs`)
-- [x] Route `Expr::Binary` to `self.eval_binary(op, left, right)` directly (`src/runtime/interpreter.rs`)
-- [x] Ensure `Expr::Call`, `Expr::Member`, `Expr::Index` arms return `RuntimeResult<Value>` (temporary explicit error is fine) (`src/runtime/interpreter.rs`)
-- [x] Clean unused imports in runtime files (`src/runtime/interpreter.rs`, `src/runtime/value.rs`)
-- [x] Add logical operators (`&& || AND OR`) (`src/runtime/interpreter.rs`)
-- [x] Decide/implement assignment-family handling (`= += -= *= /= %= ^=`) (`src/runtime/interpreter.rs`)
-- [x] Decide/implement ranges (`..`, `..=`) (`src/runtime/interpreter.rs`)
-- [x] Implement `Expr::Index` runtime behavior (array/string indexing + bounds checks) (`src/runtime/interpreter.rs`)
-- [x] Implement `Expr::Member` behavior (or explicit unsupported error for now) (`src/runtime/interpreter.rs`)
-- [x] Implement `Expr::Call` behavior (built-ins first, then user functions) (`src/runtime/interpreter.rs`)
-- [X] Add `exec_stmt(&Stmt)` skeleton (`src/runtime/interpreter.rs`)
-- [x] Implement `Let`, `ExprStmt`, `Print`/`Println` (`src/runtime/interpreter.rs`)
-- [x] Implement control flow statements (`If`, `While`, `Repeat`, `Match`, `Try`) (`src/runtime/interpreter.rs`)
-- [x] Implement `Break`, `Continue`, `Return` propagation via internal control-flow enum (`src/runtime/interpreter.rs`)
-- [x] Register function declarations from AST (`src/runtime/interpreter.rs`)
-- [x] Push/pop call frames on call (`src/runtime/interpreter.rs`)
-- [x] Bind arguments to parameters + arity checks (`src/runtime/interpreter.rs`)
-- [x] Execute interpreter after parse success (instead of only printing AST) (`src/main.rs`)
-- [x] Wrap runtime errors with `miette::Report` in main flow (`src/main.rs`)
-- [x] Keep demo samples aligned with currently implemented runtime features (`src/main.rs`, `docs/SYNTAX/example1.astra`)  
+---
+
+## About
+
+Astra is a tiny interpreted language created by **Tomas Vilhena** as a school project. It is intentionally **basic**: a handful of types, a few control-flow constructs, and a clean syntax that should feel familiar if you have ever read C, Rust, or JavaScript. The interpreter is written in Rust and ships as a single CLI binary.
+
+This is not a production language. It is a learning project — small enough to read end-to-end, useful enough to write little programs in.
+
+---
+
+## Install
+
+Astra installs through Cargo. If you have a Rust toolchain, one command is all you need:
+
+```bash
+cargo install --git https://github.com/tomasvilhena/Astra
+```
+
+The binary lands in `~/.cargo/bin/astra` (already on your `PATH` after a normal Rust install). After it finishes, run:
+
+```bash
+astra --help
+```
+
+…and you should see the CLI.
+
+---
+
+## Hello, world
+
+```astra
+entry "main";
+
+fn main(): void {
+  println("Hello, world!");
+}
+```
+
+Save it as `hello.astra`, then:
+
+```bash
+astra run hello.astra
+```
+
+Every Astra program starts with an `entry "<function_name>";` directive. The interpreter looks for that function and runs it.
+
+---
+
+## A flavor of the syntax
+
+```astra
+entry "main";
+
+fn main(): void {
+  let nums: array = [3, 1, 4, 1, 5, 9, 2, 6];
+  nums.reverse().push(0);
+
+  let total: number = 0;
+  repeat nums.length() as i {
+    total += nums[i];
+  }
+
+  println("sum is @", total);
+
+  match total {
+    0     => { println("nothing"); }
+    31    => { println("nice"); }
+    _     => { println("something else"); }
+  }
+}
+```
+
+Notable bits:
+- Variables are declared with `let name: type = value;` — types are explicit.
+- Functions use `fn name(args): return_type { ... }`.
+- `print` has no formatter; `println` uses `@` as the placeholder for any value.
+- Mutating array methods like `push`, `pop`, `reverse` chain naturally and write back to the variable.
+- `match` arms support number, string, and bool literal patterns plus `_` as a wildcard.
+
+---
+
+## FizzBuzz, the canonical example
+
+```astra
+entry "fizz_buzz";
+
+fn fizz_buzz(): void {
+  let value: number = read("Insert a number: ").to_number();
+
+  repeat value as i {
+    if ((i + 1) % 3 == 0 && (i + 1) % 5 == 0) {
+      print("FizzBuzz ");
+      continue;
+    } else if ((i + 1) % 3 == 0) {
+      print("Fizz ");
+      continue;
+    } else if ((i + 1) % 5 == 0) {
+      print("Buzz ");
+      continue;
+    }
+
+    print("@ ", (i + 1));
+  }
+}
+```
+
+More examples live in [`docs/SYNTAX/`](docs/SYNTAX/).
+
+---
+
+## Types
+
+| Type    | Example                       |
+|---------|-------------------------------|
+| `number`| `42`, `3.14`, `-7`            |
+| `bool`  | `true`, `false`               |
+| `string`| `"hello"`                     |
+| `array` | `[1, 2, 3]`, `["a", "b"]`     |
+| `void`  | functions that return nothing |
+
+---
+
+## Keywords
+
+| Category            | Keywords                                                  |
+|---------------------|-----------------------------------------------------------|
+| Program             | `entry`, `fn`, `return`                                   |
+| Declaration         | `let`                                                     |
+| Types               | `number`, `bool`, `string`, `array`, `void`               |
+| Control flow        | `if`, `else`, `while`, `repeat`, `as`, `break`, `continue`|
+| Pattern matching    | `match`, `_`                                              |
+| Error handling      | `try`, `on`                                               |
+| Logical (symbols)   | `&&`, `\|\|`, `!`                                          |
+| Logical (words)     | `AND`, `OR`, `NOT`                                        |
+| I/O                 | `print`, `println`, `read`                                |
+| Literals            | `true`, `false`                                           |
+
+---
+
+## Operators
+
+| Kind         | Operators                                              |
+|--------------|--------------------------------------------------------|
+| Arithmetic   | `+`  `-`  `*`  `/`  `%`  `^`                           |
+| Comparison   | `==`  `!=`  `<`  `<=`  `>`  `>=`                       |
+| Assignment   | `=`  `+=`  `-=`  `*=`  `/=`  `%=`  `^=`                |
+| Logical      | `&&`  `\|\|`  `!`  `AND`  `OR`  `NOT`                  |
+| Range        | `..` (exclusive)  `..=` (inclusive)                    |
+| Member/Index | `obj.method()`  `arr[i]`                               |
+
+---
+
+## CLI
+
+```bash
+astra run <file>          # run a program
+astra tokens <file>       # dump the token stream (for debugging the lexer)
+astra <command> --time    # also print how long each phase took
+```
+
+---
+
+## Building from source
+
+If you'd rather not install globally:
+
+```bash
+git clone https://github.com/tomasvilhena/Astra
+cd Astra
+cargo build --release
+./target/release/astra run docs/SYNTAX/hello_world.astra
+```
+
+---
+
+## Project status
+
+Astra is a school project. The interpreter, parser, and lexer are all hand-written in safe Rust. There is no JIT, no module system, and no plan to add one — it stays small on purpose. Bug fixes and small features land in `known-bugs/` and follow a public issue → fix → verify cycle.
+
+---
+
+<div align="center">
+
+Made with too much coffee by **Tomas Vilhena**.
+
+</div>
