@@ -1,0 +1,93 @@
+entry "main";
+
+fn main(): void
+{
+  let width: number  = 78;
+  let height: number = 30;
+  let size: number   = width * height;
+
+  let glyphs: array = [" ", "█"];
+
+  let grid: array = [];
+  repeat size as i
+  {
+    grid.push(0);
+  }
+
+  let gun: array = [
+    [24,0],
+    [22,1], [24,1],
+    [12,2], [13,2], [20,2], [21,2], [34,2], [35,2],
+    [11,3], [15,3], [20,3], [21,3], [34,3], [35,3],
+    [0,4],  [1,4],  [10,4], [16,4], [20,4], [21,4],
+    [0,5],  [1,5],  [10,5], [14,5], [16,5], [17,5], [22,5], [24,5],
+    [10,6], [16,6], [24,6],
+    [11,7], [15,7],
+    [12,8], [13,8]
+  ];
+
+  repeat gun.length() as i
+  {
+    let x: number = gun[i][0] + 2;
+    let y: number = gun[i][1] + 2;
+    grid[y * width + x] = 1;
+  }
+
+  repeat 300 as gen
+  {
+    clear();
+
+    let population: number = 0;
+
+    repeat height as y
+    {
+      let line: string = "";
+      repeat width as x
+      {
+        let cell: number = grid[y * width + x];
+        population += cell;
+        line += glyphs[cell];
+      }
+      println("@", line);
+    }
+
+    println("GAME OF LIFE  |  generation @  |  population @", gen, population);
+
+    let next: array = [];
+
+    repeat height as y
+    {
+      let up: number   = ((y + height - 1) % height) * width;
+      let down: number = ((y + 1) % height) * width;
+      let here: number = y * width;
+
+      repeat width as x
+      {
+        let left: number  = (x + width - 1) % width;
+        let right: number = (x + 1) % width;
+
+        let neighbours: number =
+            grid[up + left]   + grid[up + x]   + grid[up + right]
+          + grid[here + left]                  + grid[here + right]
+          + grid[down + left] + grid[down + x] + grid[down + right];
+
+        if (neighbours == 3 OR (grid[here + x] == 1 AND neighbours == 2))
+        {
+          next.push(1);
+        }
+        else
+        {
+          next.push(0);
+        }
+      }
+    }
+
+    grid = next;
+
+    let burn: number = 0;
+    repeat 700000 as w
+    {
+      burn += w;
+    }
+  }
+}

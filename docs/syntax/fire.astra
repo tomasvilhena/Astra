@@ -1,0 +1,63 @@
+entry "main";
+
+fn main(): void
+{
+  let width: number  = 80;
+  let height: number = 26;
+  let size: number   = width * height;
+
+  let glyphs: array = [" ", " ", ".", ":", "*", "░", "░", "▒", "▒", "▓", "▓", "█"];
+
+  let heat: array = [];
+  repeat size as i
+  {
+    heat.push(0);
+  }
+
+  let seed: number = 2024;
+
+  repeat 400 as frame
+  {
+    repeat width as x
+    {
+      seed = (seed * 75 + 74) % 65537;
+      heat[(height - 1) * width + x] = 30 + seed % 6;
+    }
+
+    repeat height - 1 as y
+    {
+      repeat width as x
+      {
+        seed = (seed * 75 + 74) % 65537;
+
+        let src_x: number = (x + (seed % 3) - 1 + width) % width;
+        let cooled: number = heat[(y + 1) * width + src_x] - seed % 2 - 1;
+
+        if (cooled < 0)
+        {
+          cooled = 0;
+        }
+
+        heat[y * width + x] = cooled;
+      }
+    }
+
+    clear();
+    repeat height as y
+    {
+      let line: string = "";
+      repeat width as x
+      {
+        line += glyphs[(heat[y * width + x] * 11 / 35).floor()];
+      }
+      println("@", line);
+    }
+    println("FIRE  |  frame @ / 400", frame + 1);
+
+    let burn: number = 0;
+    repeat 500000 as w
+    {
+      burn += w;
+    }
+  }
+}

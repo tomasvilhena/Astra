@@ -1,0 +1,162 @@
+entry "main";
+
+fn sin(x: number): number
+{
+  let pi: number     = 3.141592653589793;
+  let two_pi: number = 6.283185307179586;
+
+  while (x > pi)  { x -= two_pi; }
+  while (x < -pi) { x += two_pi; }
+
+  let term: number = x;
+  let sum: number  = x;
+  let n: number    = 1;
+  repeat 12 as k
+  {
+    term = term * (-x * x) / ((2 * n) * (2 * n + 1));
+    sum += term;
+    n += 1;
+  }
+
+  return sum;
+}
+
+fn cos(x: number): number
+{
+  return sin(x + 1.5707963267948966);
+}
+
+fn cos_table(spacing: number): array
+{
+  let two_pi: number = 6.283185307179586;
+  let table: array   = [];
+  let angle: number  = 0;
+  while (angle < two_pi)
+  {
+    table.push(cos(angle));
+    angle += spacing;
+  }
+  return table;
+}
+
+fn sin_table(spacing: number): array
+{
+  let two_pi: number = 6.283185307179586;
+  let table: array   = [];
+  let angle: number  = 0;
+  while (angle < two_pi)
+  {
+    table.push(sin(angle));
+    angle += spacing;
+  }
+  return table;
+}
+
+fn render_frame(A: number, B: number, cos_t: array, sin_t: array, cos_p: array, sin_p: array): void
+{
+  let screen_width: number  = 80;
+  let screen_height: number = 28;
+
+  let R1: number = 1;
+  let R2: number = 2;
+  let K2: number = 5;
+
+  let aspect: number = 2;
+  let K1: number     = (screen_height / 2 - 1) * K2 / (R1 + R2);
+
+  let chars: string = ".,-~:;=!*#$@";
+
+  let size: number   = screen_width * screen_height;
+  let output: array  = [];
+  let zbuffer: array = [];
+  repeat size as i
+  {
+    output.push(" ");
+    zbuffer.push(0);
+  }
+
+  let cosA: number = cos(A);
+  let sinA: number = sin(A);
+  let cosB: number = cos(B);
+  let sinB: number = sin(B);
+
+  repeat cos_t.length() as ti
+  {
+    let costheta: number = cos_t[ti];
+    let sintheta: number = sin_t[ti];
+
+    let circlex: number = R2 + R1 * costheta;
+    let circley: number = R1 * sintheta;
+
+    repeat cos_p.length() as pi
+    {
+      let cosphi: number = cos_p[pi];
+      let sinphi: number = sin_p[pi];
+
+      let x: number = circlex * (cosB * cosphi + sinA * sinB * sinphi) - circley * cosA * sinB;
+      let y: number = circlex * (sinB * cosphi - sinA * cosB * sinphi) + circley * cosA * cosB;
+      let z: number = K2 + cosA * circlex * sinphi + circley * sinA;
+      let ooz: number = 1 / z;
+
+      let xf: number = screen_width / 2 + K1 * aspect * ooz * x;
+      let yf: number = screen_height / 2 - K1 * ooz * y;
+      let xp: number = xf.floor();
+      let yp: number = yf.floor();
+
+      let L: number = cosphi * costheta * sinB - cosA * costheta * sinphi - sinA * sintheta + cosB * (cosA * sintheta - costheta * sinA * sinphi);
+
+      if (L > 0)
+      {
+        if (xp >= 0 AND xp < screen_width AND yp >= 0 AND yp < screen_height)
+        {
+          let idx: number = yp * screen_width + xp;
+
+          if (ooz > zbuffer[idx])
+          {
+            zbuffer[idx] = ooz;
+
+            let lum: number = (L * 8);
+            lum = lum.floor();
+            if (lum < 0)  { lum = 0; }
+            if (lum > 11) { lum = 11; }
+
+            output[idx] = chars[lum];
+          }
+        }
+      }
+    }
+  }
+
+  repeat screen_height as j
+  {
+    let row: string = "";
+    repeat screen_width as i
+    {
+      row += output[j * screen_width + i];
+    }
+    print("@", row);
+    println("");
+  }
+}
+
+fn main(): void
+{
+  let theta_spacing: number = 0.07;
+  let phi_spacing: number   = 0.02;
+
+  let cos_t: array = cos_table(theta_spacing);
+  let sin_t: array = sin_table(theta_spacing);
+  let cos_p: array = cos_table(phi_spacing);
+  let sin_p: array = sin_table(phi_spacing);
+
+  let A: number = 0;
+  let B: number = 0;
+
+  repeat 500 as frame
+  {
+    clear();
+    render_frame(A, B, cos_t, sin_t, cos_p, sin_p);
+    A += 0.10;
+    B += 0.05;
+  }
+}
